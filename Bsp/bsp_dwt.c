@@ -20,7 +20,6 @@ void DWT_Init(uint32_t CPU_Freq_mHz)
 {
     /* 使能DWT外设 */
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    static uint32_t *CYC = &DWT->CYCCNT;
 
     /* DWT CYCCNT寄存器计数清0 */
     DWT->CYCCNT = (uint32_t)0u;

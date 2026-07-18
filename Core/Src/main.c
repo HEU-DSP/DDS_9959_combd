@@ -21,7 +21,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "ad9959.h"
+#include "hc595.h"
+#include "trigger.h"
+#include "bsp_dma.h"
+#include "bsp_spi.h"
+#include "debug_state.h"
+#include "tx_buffer.h"
+#include "phase1_config.h"
+#include "mod_config.h"
+#include "symbol_buffer.h"
+#include "channel_config.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +57,8 @@ FDCAN_HandleTypeDef hfdcan1;
 
 FMAC_HandleTypeDef hfmac;
 
+LPTIM_HandleTypeDef hlptim1;
+
 OSPI_HandleTypeDef hospi1;
 
 OPAMP_HandleTypeDef hopamp1;
@@ -53,6 +66,8 @@ OPAMP_HandleTypeDef hopamp2;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi3;
+DMA_HandleTypeDef hdma_spi1_tx;
+DMA_HandleTypeDef hdma_spi3_tx;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
@@ -64,7 +79,8 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart10;
 
 /* USER CODE BEGIN PV */
-
+DebugState ds = {0};
+static volatile bool tx_running = true;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,6 +88,7 @@ void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_CORDIC_Init(void);
 static void MX_FDCAN1_Init(void);
 static void MX_FMAC_Init(void);
@@ -87,12 +104,52 @@ static void MX_OPAMP1_Init(void);
 static void MX_OPAMP2_Init(void);
 static void MX_USART10_UART_Init(void);
 static void MX_OCTOSPI1_Init(void);
+static void MX_LPTIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/* DMA Complete Callback — both SPI1 and SPI3 done */
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    static int done_count = 0;
+    done_count++;
+    if (done_count >= 2) {
+        done_count = 0;
+
+        /* ── 锁存本帧 TIM4 捕获值 ── */
+        ds.tim4_last_start = ds.tim4_cs_start;
+        ds.tim4_last_end   = ds.tim4_cs_end;
+        Trigger_GetCaptureTiming(&ds.tim4_cs_start, &ds.tim4_cs_end);
+
+        /* ── Swap & re-ARM DMA for next frame ── */
+        Trigger_SwapBuffer();
+
+        /* ── 从 pending 缓冲区计算下一帧 ── */
+        FrameBank *idle = TxBuf_GetIdle();
+        if (Encoder_BuildBank(idle, &tx_bank_bytes)) {
+            ds.frame_count++;
+        } else {
+            /* App 未提交新配置 → 暂停发射 */
+            Trigger_Stop();
+            tx_running = false;
+        }
+    }
+}
+
+/* DMA Error Callback */
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    ds.dma_error_count++;
+    BSP_SPI_Abort(hspi->Instance);
+
+    /* Re-arm both DMA channels with current active bank data */
+    FrameBank *active = TxBuf_GetActive();
+    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
+}
 
 /* USER CODE END 0 */
 
@@ -131,6 +188,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CORDIC_Init();
   MX_FDCAN1_Init();
   MX_FMAC_Init();
@@ -146,17 +204,74 @@ int main(void)
   MX_OPAMP2_Init();
   MX_USART10_UART_Init();
   MX_OCTOSPI1_Init();
+  MX_LPTIM1_Init();
   /* USER CODE BEGIN 2 */
 
+  /* ---- Init frame timing ---- */
+  tx_timing.baud_rate       = P1_BAUD_RATE;
+  tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
+  TxTiming_Update();
+
+  /* ---- App: configure CH0 as CW 10 MHz ---- */
+  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
+  /* CW doesn't consume symbols, but sym_buf needs ready=1 for loop cycle */
+  sym_buf.ready = true;
+  sym_buf.count = 1;
+
+  /* ---- Phase 1: Initialize 595 + AD9959 ---- */
+  HC595_Init();
+  AD9959_Init();
+
+  /* ---- Prime first frame ---- */
+  Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes);
+  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
+  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+  sym_buf.ready = true;  /* re-arm for ISR */
+
+  /* ---- Initialize trigger chain ---- */
+  Trigger_Config trig_cfg = {
+      .spi1_ping   = tx_bank[0].spi1,
+      .spi3_ping   = tx_bank[0].spi3,
+      .spi1_pong   = tx_bank[1].spi1,
+      .spi3_pong   = tx_bank[1].spi3,
+      .bank_size  = tx_bank_bytes,
+      .sample_rate = tx_timing.sample_rate,
+      .ch1_delay   = P1_CH1_DELAY,
+      .ch2_delay   = P1_CH2_DELAY,
+  };
+  Trigger_Init(&trig_cfg);
+  Trigger_Start();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t last_tick = HAL_GetTick();
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+      uint32_t now = HAL_GetTick();
+      if (now - last_tick >= 100) {
+          last_tick = now;
+
+          if (sym_buf.free) {
+              static int test_pattern = 0;
+              test_pattern = (test_pattern + 1) % 3;
+              switch (test_pattern) {
+              case 0: ModCfg_SetCW (0, FTW_10MHZ, 0x3FF);          break;
+              case 1: ModCfg_SetFSK(0, FTW_10MHZ, FTW_11MHZ, 0x3FF); break;
+              case 2: ModCfg_Disable(0);
+                      ModCfg_SetCW (1, FTW_10MHZ, 0x200);          break;
+              }
+              sym_buf.ready = true;
+              sym_buf.free  = false;
+          }
+          if (!tx_running && sym_buf.ready) {
+              Trigger_Restart();
+              tx_running = true;
+          }
+      }
   }
   /* USER CODE END 3 */
 }
@@ -366,6 +481,41 @@ static void MX_FMAC_Init(void)
   /* USER CODE BEGIN FMAC_Init 2 */
 
   /* USER CODE END FMAC_Init 2 */
+
+}
+
+/**
+  * @brief LPTIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPTIM1_Init(void)
+{
+
+  /* USER CODE BEGIN LPTIM1_Init 0 */
+
+  /* USER CODE END LPTIM1_Init 0 */
+
+  /* USER CODE BEGIN LPTIM1_Init 1 */
+
+  /* USER CODE END LPTIM1_Init 1 */
+  hlptim1.Instance = LPTIM1;
+  hlptim1.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
+  hlptim1.Init.Clock.Prescaler = LPTIM_PRESCALER_DIV8;
+  hlptim1.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
+  hlptim1.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
+  hlptim1.Init.UpdateMode = LPTIM_UPDATE_IMMEDIATE;
+  hlptim1.Init.CounterSource = LPTIM_COUNTERSOURCE_INTERNAL;
+  hlptim1.Init.Input1Source = LPTIM_INPUT1SOURCE_GPIO;
+  hlptim1.Init.Input2Source = LPTIM_INPUT2SOURCE_GPIO;
+  if (HAL_LPTIM_Init(&hlptim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPTIM1_Init 2 */
+  /* LPTIM1 clock = 128 MHz / 8 = 16 MHz.
+   * ARR period set at runtime by Trigger_Init() = 16e6 / sample_rate - 1. */
+  /* USER CODE END LPTIM1_Init 2 */
 
 }
 
@@ -592,6 +742,7 @@ static void MX_TIM2_Init(void)
   /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -617,9 +768,22 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_RESET;
+  sSlaveConfig.InputTrigger = TIM_TS_ETRF;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_NONINVERTED;
+  sSlaveConfig.TriggerPrescaler = TIM_TRIGGERPRESCALER_DIV1;
+  sSlaveConfig.TriggerFilter = 0;
+  if (HAL_TIM_SlaveConfigSynchro(&htim2, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIMEx_RemapConfig(&htim2, TIM_TIM2_ETR_COMP1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -1023,6 +1187,28 @@ static void MX_USART10_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMAMUX1_OVR_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMAMUX1_OVR_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMAMUX1_OVR_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -1062,11 +1248,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PD4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  /*Configure GPIO pin : SPI_9959_DIO3_BP_Pin */
+  GPIO_InitStruct.Pin = SPI_9959_DIO3_BP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+  HAL_GPIO_Init(SPI_9959_DIO3_BP_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SYNC_9959_IO_UPDATE_BP_Pin */
   GPIO_InitStruct.Pin = SYNC_9959_IO_UPDATE_BP_Pin;

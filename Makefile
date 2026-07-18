@@ -65,11 +65,31 @@ Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c \
+Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_lptim.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c \
 Core/Src/system_stm32h7xx.c \
 Core/Src/sysmem.c \
-Core/Src/syscalls.c  
+Core/Src/syscalls.c \
+Bsp/bsp_dwt.c \
+Bsp/bsp_spi.c \
+Bsp/bsp_tim.c \
+Bsp/bsp_dma.c \
+Bsp/bsp_gpio.c \
+Bsp/bsp_uart.c \
+Drivers/AD9959/ad9959.c \
+Drivers/595/hc595.c \
+Drivers/Trigger/trigger.c \
+Middleware/DDS/dds_encoder.c \
+Middleware/Buffer/pingpong.c \
+App/tx_buffer.c \
+App/mod_config.c \
+App/channel_config.c \
+Middleware/symbol_buffer.c \
+Middleware/Buffer/frame_builder.c \
+Middleware/Modulator/mod_cw.c \
+Middleware/Modulator/mod_fsk.c \
+Middleware/Modulator/mod_ask.c
 
 # ASM sources
 ASM_SOURCES =  \
@@ -135,7 +155,22 @@ C_INCLUDES =  \
 -IDrivers/STM32H7xx_HAL_Driver/Inc \
 -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32H7xx/Include \
--IDrivers/CMSIS/Include
+-IDrivers/CMSIS/Include \
+-IBsp \
+-IDrivers/AD9959 \
+-IDrivers/595 \
+-IDrivers/APS6404 \
+-IDrivers/Clock \
+-IDrivers/Trigger \
+-IMiddleware \
+-IMiddleware/DDS \
+-IMiddleware/Buffer \
+-IMiddleware/Scheduler \
+-IMiddleware/Packet \
+-IMiddleware/Symbol \
+-IMiddleware/Modulator \
+-IMiddleware/PulseShaping \
+-IApp
 
 
 # compile gcc flags

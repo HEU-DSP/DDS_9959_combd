@@ -1,0 +1,99 @@
+LARM LINKER/LOCATER V2.53                                                               11/26/2008  17:51:15  PAGE 1
+
+
+LARM LINKER/LOCATER V2.53, INVOKED BY:
+C:\KEIL\ARM\BIN\LA.EXE startup.obj, config.obj, main.obj, SPI_Master.obj TO AD9959Driver CASE CLASSES (DATA (0X10000-0X1
+>> 1FFF), CODE (0X80000-0X8F7FF), CONST (0X80000-0X8F7FF))
+
+
+CPU MODE: LITTLE ENDIAN
+
+
+INPUT MODULES INCLUDED:
+  startup.obj (STARTUP)
+         COMMENT TYPE 0: AA V2.50
+  config.obj (config)
+         COMMENT TYPE 0: CARM V2.53
+  main.obj (main)
+         COMMENT TYPE 0: CARM V2.53
+  SPI_Master.obj (SPI_Master)
+         COMMENT TYPE 0: CARM V2.53
+  C:\KEIL\ARM\LIB\CAL.LIB (FIQ)
+         COMMENT TYPE 0: AA V2.50
+  C:\KEIL\ARM\LIB\CAL.LIB (IRQ)
+         COMMENT TYPE 0: AA V2.50
+  C:\KEIL\ARM\LIB\CAL.LIB (DABT)
+         COMMENT TYPE 0: AA V2.50
+  C:\KEIL\ARM\LIB\CAL.LIB (PABT)
+         COMMENT TYPE 0: AA V2.50
+  C:\KEIL\ARM\LIB\CAL.LIB (SWI)
+         COMMENT TYPE 0: AA V2.50
+  C:\KEIL\ARM\LIB\CAL.LIB (UNDEF)
+         COMMENT TYPE 0: AA V2.50
+
+
+ACTIVE MEMORY CLASSES OF MODULE:  AD9959Driver (STARTUP)
+
+BASE       START      END        USED       MEMORY CLASS
+========================================================
+00000000H  00010000H  00011FFFH  00000494H  DATA
+00000000H  00080000H  0008F7FFH  000005B0H  CODE
+00000000H  00080000H  0008F7FFH  00000018H  CONST
+
+
+
+MEMORY MAP OF MODULE:  AD9959Driver (STARTUP)
+
+START      STOP       LENGTH    ALIGN  RELOC  MEMORY CLASS   SEGMENT NAME
+=========================================================================
+00010000H  0001048FH  00000490H     4  UNIT   DATA           STACK
+00010490H  00010493H  00000004H     4  UNIT   DATA           ?DT0?main
+00010494H  0007FFFFH  0006FB6CH   ---  ---    **GAP**
+00080000H  000800D3H  000000D4H     4  AT..   CODE           STARTUPCODE
+000800D4H  000800E3H  00000010H     4  UNIT   CONST          ?C_CLRSEG
+000800E4H  000800EBH  00000008H     4  UNIT   CONST          ?C_INITSEG
+000800ECH  00080187H  0000009CH     4  UNIT   CODE           ?PR?ADuC7026_Initiate?T?config
+00080188H  000801C3H  0000003CH     4  UNIT   CODE           ?PR?IO_Update?T?config
+000801C4H  0008027FH  000000BCH     4  UNIT   CODE           ?PR?main?main
+00080280H  0008029BH  0000001CH     4  UNIT   CODE           ?PR?putchar?T?main
+0008029CH  000802A7H  0000000CH     4  UNIT   CODE           ?PR?delay?T?SPI_Master
+000802A8H  0008043BH  00000194H     4  UNIT   CODE           ?PR?WriteToAD9959ViaSpi?T?SPI_Master
+0008043CH  000805AFH  00000174H     4  UNIT   CODE           ?PR?ReadFromAD9959ViaSpi?T?SPI_Master
+000805B0H  000805B3H  00000004H     4  UNIT   CODE           ?C?FIQ
+000805B4H  000805B7H  00000004H     4  UNIT   CODE           ?C?IRQ
+000805B8H  000805BBH  00000004H     4  UNIT   CODE           ?C?DABT
+000805BCH  000805BFH  00000004H     4  UNIT   CODE           ?C?PABT
+000805C0H  000805C7H  00000008H     4  UNIT   CODE           ?C?UNDEF
+
+
+
+LARM LINKER/LOCATER V2.53                                                             11/26/2008  17:51:15  PAGE 2
+
+
+PUBLIC SYMBOLS OF MODULE:  AD9959Driver (STARTUP)
+
+      VALUE      CLASS    TYPE      PUBLIC SYMBOL NAME
+      ================================================
+      000800D4H  ---      ---       ?C?CLRTAB
+      000801C4H  ---      ---       ?C?INIT
+      000800E4H  ---      ---       ?C?INITTAB
+      000800ECH  CODE     ---       ADuC7026_Initiate?T
+      000805B8H  CODE     ---       DAbt_Handler?A
+      000805B0H  CODE     ---       FIQ_Handler?A
+      00080188H  CODE     ---       IO_Update?T
+      000805B4H  CODE     ---       IRQ_Handler?A
+      000805BCH  CODE     ---       PAbt_Handler?A
+      0008043CH  CODE     ---       ReadFromAD9959ViaSpi?T
+      00010490H  DATA     ---       RegisterData
+      000805C0H  CODE     ---       SWI_Handler?A
+      000805C4H  CODE     ---       Undef_Handler?A
+      000802A8H  CODE     ---       WriteToAD9959ViaSpi?T
+      00080000H  CODE     ---       __startup
+      0008029CH  CODE     ---       delay?T
+      000800B8H  CODE     ---       exit?A
+      000800BCH  CODE     ---       exit?T
+      000801F8H  CODE     ---       main
+      00080280H  CODE     ---       putchar?T
+
+Program Size: data=1172 const=24 code=1456
+LARM RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

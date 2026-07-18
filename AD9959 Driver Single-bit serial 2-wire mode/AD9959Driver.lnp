@@ -1,0 +1,8 @@
+"startup.obj",
+"config.obj",
+"main.obj",
+"SPI_Master.obj" 
+TO "AD9959Driver" 
+CASE 
+CLASSES (DATA (0x10000-0x11FFF), 
+CODE (0x80000-0x8F7FF), CONST (0x80000-0x8F7FF)) 
