@@ -214,9 +214,7 @@ int main(void)
 
   /* ---- App: configure CH0 as CW 10 MHz ---- */
   ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
-  /* CW doesn't consume symbols, but sym_buf needs ready=1 for loop cycle */
-  sym_buf.ready = true;
-  sym_buf.count = 1;
+  SymbolBuf_Clear();
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
@@ -226,7 +224,6 @@ int main(void)
   Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes);
   memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
   memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
-  sym_buf.ready = true;  /* re-arm for ISR */
 
   /* ---- Initialize trigger chain ---- */
   Trigger_Config trig_cfg = {
@@ -255,21 +252,50 @@ int main(void)
       if (now - last_tick >= 100) {
           last_tick = now;
 
-          if (sym_buf.free) {
+          if (SymbolBuf_IsFree()) {
               static int test_pattern = 0;
               test_pattern = (test_pattern + 1) % 3;
               switch (test_pattern) {
-              case 0: ModCfg_SetCW (0, FTW_10MHZ, 0x3FF);          break;
-              case 1: ModCfg_SetFSK(0, FTW_10MHZ, FTW_11MHZ, 0x3FF); break;
-              case 2: ModCfg_Disable(0);
-                      ModCfg_SetCW (1, FTW_10MHZ, 0x200);          break;
+              case 0:
+                  ModCfg_Disable(0);
+                  ModCfg_Disable(1);
+                  ModCfg_Disable(2);
+                  ModCfg_Disable(3);
+                  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
+                  SymbolBuf_Clear();
+                  break;
+              case 1:
+              {
+                  static const uint8_t fsk_bits[] = {1, 0, 1, 0, 1, 1, 0, 0};
+                  ModCfg_Disable(0);
+                  ModCfg_Disable(1);
+                  ModCfg_Disable(2);
+                  ModCfg_Disable(3);
+                  ModCfg_SetFSK(0, FTW_11MHZ, FTW_10MHZ, 0x3FF);
+                  SymbolBuf_WriteBits(fsk_bits, sizeof(fsk_bits));
+                  break;
               }
-              sym_buf.ready = true;
-              sym_buf.free  = false;
+              case 2:
+              {
+                  static const uint8_t ask_bits[] = {1, 0, 1, 0, 1, 0, 0, 1};
+                  ModCfg_Disable(0);
+                  ModCfg_Disable(1);
+                  ModCfg_Disable(2);
+                  ModCfg_Disable(3);
+                  ModCfg_SetASK(0, FTW_10MHZ, 0x3FF, 0x000);
+                  SymbolBuf_WriteBits(ask_bits, sizeof(ask_bits));
+                  break;
+              }
+              }
           }
-          if (!tx_running && sym_buf.ready) {
-              Trigger_Restart();
-              tx_running = true;
+          if (!tx_running) {
+              if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
+                  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
+                  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+                  tx_active = 0;
+                  Trigger_Restart();
+                  tx_running = true;
+              }
           }
       }
   }

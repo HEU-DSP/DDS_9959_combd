@@ -27,6 +27,7 @@ typedef enum {
 /* ---- Per-modulation-type parameter structs ---- */
 typedef struct {
     uint32_t ftw;
+    uint16_t asf;
 } CW_Params;
 
 typedef struct {
@@ -54,7 +55,7 @@ extern ChannelModConfig mod_cfg[DDS_CHANNEL_COUNT];
 /* ---- Convenience setters (debugger / code) ---- */
 static inline void ModCfg_SetCW(uint8_t ch, uint32_t ftw, uint16_t asf) {
     mod_cfg[ch].mode = CH_MODE_CW; mod_cfg[ch].enabled = true;
-    mod_cfg[ch].cw.ftw = ftw; mod_cfg[ch].fsk.asf = asf;
+    mod_cfg[ch].cw.ftw = ftw; mod_cfg[ch].cw.asf = asf;
 }
 static inline void ModCfg_SetFSK(uint8_t ch, uint32_t ftw_m, uint32_t ftw_s, uint16_t asf) {
     mod_cfg[ch].mode = CH_MODE_FSK; mod_cfg[ch].enabled = true;

@@ -19,7 +19,6 @@
 #include <string.h>
 
 static Trigger_Config trig_cfg;
-static volatile uint8_t active_bank;   /* 0=ping, 1=pong */
 
 /* ================================================================
  * Init
@@ -28,7 +27,10 @@ static volatile uint8_t active_bank;   /* 0=ping, 1=pong */
 void Trigger_Init(const Trigger_Config *cfg)
 {
     memcpy((void *)&trig_cfg, cfg, sizeof(Trigger_Config));
-    active_bank = 0;
+
+    /* tx_active is the single source of truth for ping-pong ownership:
+     * DMA reads TxBuf_GetActive(), CPU fills TxBuf_GetIdle(). */
+    tx_active = 0;
 
     /* 1. TIM2 PWM frequency (ARR/CCR1 only, slave config in MX_TIM2_Init) */
     BSP_TIM2_SetFreq(cfg->sample_rate);
@@ -106,13 +108,12 @@ void Trigger_Restart(void)
 
 void Trigger_SwapBuffer(void)
 {
-    active_bank ^= 1;
+    TxBuf_Swap();
+    FrameBank *active = TxBuf_GetActive();
 
-    const uint8_t *s1 = (active_bank == 0) ? trig_cfg.spi1_ping : trig_cfg.spi1_pong;
-    const uint8_t *s3 = (active_bank == 0) ? trig_cfg.spi3_ping : trig_cfg.spi3_pong;
-
-    /* Re-arm DMA for next bank */
-    BSP_SPI_Both_DMA_Start(s1, s3, trig_cfg.bank_size);
+    /* Re-arm DMA with the just-promoted bank. tx_bank_bytes may change after
+     * App/Middleware refills the opposite bank, so use the live length. */
+    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
 }
 
 /* ================================================================
