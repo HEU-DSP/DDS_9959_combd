@@ -22,7 +22,7 @@
  *         3. Configure FR1 (PLL multiplication, VCO gain, charge pump)
  *         4. Configure FR2
  *         5. Enable REF_CLK output (TIM15)
- * @note   Call HC595_Init() before this.
+ * @note   Call DRV_595_Init() before this.
  */
 void AD9959_Init(void);
 

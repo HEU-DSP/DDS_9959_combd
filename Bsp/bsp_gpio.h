@@ -10,16 +10,6 @@
 
 #include "main.h"
 
-/* ---- 74HC595 Control ---- */
-void BSP_GPIO_595_STCP_Set(void);   /* Storage Clock (latch) high */
-void BSP_GPIO_595_STCP_Clr(void);
-void BSP_GPIO_595_SHCP_Set(void);   /* Shift Clock high */
-void BSP_GPIO_595_SHCP_Clr(void);
-void BSP_GPIO_595_MR_Set(void);     /* Master Reset release (high) */
-void BSP_GPIO_595_MR_Clr(void);     /* Master Reset assert (low) */
-void BSP_GPIO_595_OE_Clr(void);     /* Output Enable (low = active) */
-void BSP_GPIO_595_OE_Set(void);     /* Output Disable (high = Hi-Z) */
-
 /* ---- AD9959 DIO2 (PD5, reserved) ---- */
 void BSP_GPIO_DIO2_Set(void);
 void BSP_GPIO_DIO2_Clr(void);

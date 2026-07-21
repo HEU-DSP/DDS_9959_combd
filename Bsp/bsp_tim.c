@@ -1,51 +1,24 @@
 /**
  ******************************************************************************
  * @file    bsp_tim.c
- * @brief   BSP TIM abstraction — TIM2/4/8/15 for AD9959 timing chain
+ * @brief   BSP TIM abstraction — TIM4/8/15 + LPTIM3 for AD9959 timing chain
  *
  * Clock frequencies (from CubeMX RCC config):
- *   TIM2  (APB2) = 256 MHz
- *   TIM4  (APB1) = 128 MHz
- *   TIM8  (APB2) = 256 MHz
- *   TIM15 (APB2) = 256 MHz
+ *   TIM4  (APB1)  = 135 MHz
+ *   TIM8  (APB2)  = 135 MHz
+ *   TIM15 (APB2)  = 135 MHz
+ *   LPTIM3 (D3PCLK1) = 135 MHz, prescaler /1
  ******************************************************************************
  */
 
 #include "bsp_tim.h"
 
-extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
 extern TIM_HandleTypeDef htim15;
 
 static volatile uint32_t tim4_cs_start = 0;
 static volatile uint32_t tim4_cs_end   = 0;
-
-/* ================================================================
- * TIM2 — DMA Trigger (CH1 PWM, TRGO=UPDATE → ITR1 → TIM8)
- * ================================================================ */
-
-void BSP_TIM2_SetFreq(uint32_t freq_hz)
-{
-    /* CubeMX MX_TIM2_Init() already configures:
-     *   SlaveMode=RESET, Trigger=ETRF, ETR remap=COMP1
-     *   MasterSlaveMode=ENABLE, TRGO=UPDATE
-     * Here we only adjust the PWM frequency via ARR/CCR1. */
-    uint32_t arr = (256000000UL / freq_hz) - 1;
-    if (arr < 2) arr = 2;
-    __HAL_TIM_SET_AUTORELOAD(&htim2, arr);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, arr / 2);
-}
-
-void BSP_TIM2_Start(void)
-{
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-}
-
-void BSP_TIM2_Stop(void)
-{
-    HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1);
-}
 
 /* ================================================================
  * TIM4 — CS Timing Capture
@@ -96,7 +69,7 @@ void BSP_TIM8_Stop(void)
 
 void BSP_TIM15_SetREFCLK(uint32_t freq_hz)
 {
-    uint32_t arr = (256000000UL / freq_hz) - 1;
+    uint32_t arr = (135000000UL / freq_hz) - 1;
     if (arr < 2) arr = 2;
     __HAL_TIM_SET_AUTORELOAD(&htim15, arr);
     __HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, arr / 2);
@@ -128,28 +101,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 }
 
 /* ================================================================
- * LPTIM1 — DMA Sync Gate (16 MHz after /8 prescaler)
+ * LPTIM3 — Master Trigger (135 MHz, prescaler /1)
+ * OUT → DMAMUX sync gate + TIM8 ETR (PA0) + TIM4 ETR (PE0)
  * ================================================================ */
 
-extern LPTIM_HandleTypeDef hlptim1;
-static uint16_t lptim1_period = 0;
+extern LPTIM_HandleTypeDef hlptim3;
+static uint16_t lptim3_period = 0;
 
-void BSP_LPTIM1_SetPeriod(uint16_t period)
+void BSP_LPTIM3_SetPeriod(uint16_t period)
 {
-    lptim1_period = period;
-    hlptim1.Instance->ARR = period;
+    lptim3_period = period;
+    hlptim3.Instance->ARR = period;
 }
 
-void BSP_LPTIM1_Start(uint16_t period)
+void BSP_LPTIM3_Start(uint16_t period)
 {
     if (period > 0) {
-        lptim1_period = period;
-        hlptim1.Instance->ARR = period;
+        lptim3_period = period;
+        hlptim3.Instance->ARR = period;
     }
-    HAL_LPTIM_Counter_Start(&hlptim1, lptim1_period);
+    HAL_LPTIM_Counter_Start(&hlptim3, lptim3_period);
 }
 
-void BSP_LPTIM1_Stop(void)
+void BSP_LPTIM3_Stop(void)
 {
-    HAL_LPTIM_Counter_Stop(&hlptim1);
+    HAL_LPTIM_Counter_Stop(&hlptim3);
 }

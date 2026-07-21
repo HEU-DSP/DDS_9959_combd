@@ -1,19 +1,19 @@
 /**
  ******************************************************************************
  * @file    trigger.h
- * @brief   LPTIM1→DMA→SPI→TIM8 Hardware Trigger Chain
+ * @brief   LPTIM3→DMA→SPI→TIM8 Hardware Trigger Chain
  *
  * Architecture:
- *   LPTIM1_OUT ──→ DMAMUX Sync Gate ──→ SPI1+SPI3 DMA unlock
- *                                    ──→ CS↓ → SCLK → DATA
- *   TIM2 CH1 ↑──→ ETRF reset TIM2 → Update → ITR1 → TIM8 reset
- *              └──→ (飞线 PE0) → TIM4 ETR reset
- *   TIM8 CH1/CH2 → delayed pulse → IO_UPDATE / DIO3
+ *   LPTIM3_OUT (PA1) ─┬→ DMAMUX Sync Gate ──→ SPI1+SPI3 DMA unlock
+ *                      ├→ fly-wire PA0 → TIM8 ETR → TIM8 reset → CH1/CH2 pulse
+ *                      └→ fly-wire PE0 → TIM4 ETR → TIM4 counter reset
  *
- * DMA: one LPTIM1_OUT → gate open → entire bank sent → CS↓→data→CS↑
- *       → TIM8 IO_UPDATE pulse → one TC ISR per bank.
- * LPTIM1 prescaler: /8 → 16 MHz tick
- * TIM2 clock: 256 MHz (APB2)
+ *   One LPTIM3_OUT period → gate open → entire SPI bank sent → CS↓→data→CS↑
+ *   → TIM8 CH1/CH2 delayed pulses → IO_UPDATE/DIO3 → one TC ISR per bank.
+ *
+ *   LPTIM3 clock: 135 MHz (D3PCLK1), prescaler /1
+ *   TIM8 clock:   135 MHz (APB2)
+ *   TIM4 clock:   135 MHz (APB1)
  ******************************************************************************
  */
 

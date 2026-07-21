@@ -78,7 +78,7 @@ Bsp/bsp_dma.c \
 Bsp/bsp_gpio.c \
 Bsp/bsp_uart.c \
 Drivers/AD9959/ad9959.c \
-Drivers/595/hc595.c \
+Drivers/595/drv_74hc595_1.c \
 Drivers/Trigger/trigger.c \
 Middleware/DDS/dds_encoder.c \
 Middleware/Buffer/pingpong.c \

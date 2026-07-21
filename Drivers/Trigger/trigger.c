@@ -1,14 +1,14 @@
 /**
  ******************************************************************************
  * @file    trigger.c
- * @brief   LPTIM1→DMA→SPI→TIM8 Trigger Chain Implementation
+ * @brief   LPTIM3→DMA→SPI→TIM8 Trigger Chain Implementation
  *
  * CubeMX hardware config:
- *   LPTIM1: /8 prescaler → 16 MHz, OUT signal → DMAMUX Sync for SPI DMA
- *   TIM2:   SlaveMode=RESET on ETRF (COMP1 remap), TRGO=Update → ITR1→TIM8
- *   TIM4:   SlaveMode=RESET on ETRF (PE0 ← PA0 wire), CH1/CH2 = IC
- *   TIM8:   SlaveMode=RESET on ITR1 (TIM2), CH1/CH2 = OC Timing
- *   DMA:    SPI1_TX (Stream2) + SPI3_TX (Stream1), Sync=LPTIM1_OUT, Normal
+ *   LPTIM3: /1 prescaler → 135 MHz, OUT → DMAMUX Sync for SPI DMA,
+ *           + fly-wire PA0→TIM8 ETR, fly-wire PE0→TIM4 ETR
+ *   TIM4:   SlaveMode=RESET on ETRF (PE0 ← LPTIM3_OUT wire), CH1/CH2 = IC
+ *   TIM8:   SlaveMode=RESET on ETRF (PA0 ← LPTIM3_OUT wire), CH1/CH2 = OC Timing
+ *   DMA:    SPI1_TX (Stream2) + SPI3_TX (Stream1), Sync=LPTIM3_OUT, Normal
  ******************************************************************************
  */
 
@@ -32,23 +32,19 @@ void Trigger_Init(const Trigger_Config *cfg)
      * DMA reads TxBuf_GetActive(), CPU fills TxBuf_GetIdle(). */
     tx_active = 0;
 
-    /* 1. TIM2 PWM frequency (ARR/CCR1 only, slave config in MX_TIM2_Init) */
-    BSP_TIM2_SetFreq(cfg->sample_rate);
+    /* 1. LPTIM3 period: 135 MHz / sample_rate - 1 */
+    uint16_t lptim_period = (uint16_t)(135000000UL / cfg->sample_rate - 1);
+    BSP_LPTIM3_SetPeriod(lptim_period);
 
-    /* 2. LPTIM1 period: 16 MHz / sample_rate - 1 */
-    uint16_t lptim_period = (16000000UL / cfg->sample_rate) - 1;
-    BSP_LPTIM1_SetPeriod(lptim_period);
-
-    /* 3. TIM8 OC delays */
+    /* 2. TIM8 OC delays */
     BSP_TIM8_SetDelay(TIM_CHANNEL_1, cfg->ch1_delay);
     BSP_TIM8_SetDelay(TIM_CHANNEL_2, cfg->ch2_delay);
 
-    /* 4. TIM4 capture enabled */
+    /* 3. TIM4 capture enabled */
     BSP_TIM4_Start();
 
-    /* 5. TIM8 OC enabled */
+    /* 4. TIM8 OC enabled */
     BSP_TIM8_Start();
-
 }
 
 /* ================================================================
@@ -57,17 +53,15 @@ void Trigger_Init(const Trigger_Config *cfg)
 
 void Trigger_Start(void)
 {
-    /* Phase-align LPTIM1 and TIM2: both counters → 0 */
+    /* Phase-align LPTIM3: counter → 0 */
     __disable_irq();
-    LPTIM1->CNT = 0;
-    TIM2->CNT   = 0;
+    LPTIM3->CNT = 0;
     __enable_irq();
 
-    /* Start both timers simultaneously */
-    BSP_LPTIM1_Start(0);   /* use previously set period */
-    BSP_TIM2_Start();      /* PWM on CH1 */
+    /* Start LPTIM3 */
+    BSP_LPTIM3_Start(0);   /* use previously set period */
 
-    /* ARM DMA channels — both wait for LPTIM1_OUT sync */
+    /* ARM DMA channels — both wait for LPTIM3_OUT sync */
     BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, trig_cfg.spi3_ping,
                            trig_cfg.bank_size);
 }
@@ -78,8 +72,7 @@ void Trigger_Start(void)
 
 void Trigger_Stop(void)
 {
-    BSP_LPTIM1_Stop();
-    BSP_TIM2_Stop();
+    BSP_LPTIM3_Stop();
     BSP_TIM8_Stop();
     BSP_TIM4_Stop();
     BSP_SPI_Both_Abort();
@@ -89,12 +82,10 @@ void Trigger_Restart(void)
 {
     /* Reset phase alignment and re-start without full re-init */
     __disable_irq();
-    LPTIM1->CNT = 0;
-    TIM2->CNT   = 0;
+    LPTIM3->CNT = 0;
     __enable_irq();
 
-    BSP_LPTIM1_Start(0);
-    BSP_TIM2_Start();
+    BSP_LPTIM3_Start(0);
     BSP_TIM4_Start();
     BSP_TIM8_Start();
 

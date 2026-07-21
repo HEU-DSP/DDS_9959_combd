@@ -34,8 +34,8 @@
  * ================================================================ */
 #define P1_BAUD_RATE            100000U   /* 100 kHz symbol rate               */
 #define P1_SAMPLES_PER_SYM      1U        /* No oversampling for CW/FSK/ASK     */
-#define P1_CH1_DELAY            200U      /* TIM8 CH1 initial delay ticks       */
-#define P1_CH2_DELAY            210U      /* TIM8 CH2 initial delay ticks       */
+#define P1_CH1_DELAY            200U      /* TIM8 CH1 (IO_UPDATE) delay ticks after ETR reset */
+#define P1_CH2_DELAY            210U      /* TIM8 CH2 (DIO3) delay ticks after ETR reset      */
 
 /* ================================================================
  * Frame transfer time constraint

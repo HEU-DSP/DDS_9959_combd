@@ -1,2 +1,5 @@
 build/
 launch.json
+nul
+compile_commands.json
+.vscode/settings.json

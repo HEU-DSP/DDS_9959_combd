@@ -108,7 +108,7 @@ Project
 │   ├── Clock/              #   时钟分发管理
 │   │   └── clock_mgr.c/h   #     REF_CLK 频率配置
 │   └── Trigger/            #   触发与同步管理
-│       └── trigger.c/h     #     TIM2→DMA→TIM8 链路控制
+│       └── trigger.c/h     #     LPTIM3→DMA→SPI→TIM8 链路控制
 │
 ├── Middleware/             # 核心发送流水线（与硬件解耦）
 │   ├── DDS/                #   DDS 命令抽象
@@ -165,22 +165,23 @@ CubeMX 自动生成工程。
 
 ## 5.1 外设清单
 
-| 外设 | 用途 | 关键引脚 |
-|:--|:---|:---|
-| SPI1 | AD9959 SDIO0 数据发送 (MOSI) + 读回 (MISO) + 片选 (NSS) + 时钟 (SCK) | PD7, PB4, PA15, PB3 |
-| SPI3 | AD9959 SDIO1 数据发送 (TX Only) + 时钟 | PD6, PC10 |
-| TIM2 | DMA 触发源 (CH1 PWM)，Update 经 ITR1 复位 TIM8 | PA0 |
-| TIM4 | CS 时序测量 (CH1/CH2 Input Capture)，CNT 由 ETR 硬件清零 | PB6, PB7, PE0 |
-| TIM8 | IO_UPDATE (CH1) + DIO3 (CH2) 脉冲输出，由 TIM2 Update → ITR1 复位 | PC6, PC7 |
-| TIM15 | AD9959 REF_CLK 参考时钟 (CH1 PWM) | PC12 |
-| DMA | SPI1_TX + SPI3_TX 并行搬运，由 TIM2_CH1 触发 | — |
-| GPIO | DIO2 预留 (PD5)、595 控制 (PE2~PE6)、通用 IO (PD0~PD3) | PD5, PE2~PE6, PD0~PD3 |
-| UART4 | AD9959 辅助通信 IO | PD0, PD1 |
-| USART1 | 调试串口 | PA9, PA10 |
-| USART10 | 595 串行数据 (半双工单线) | PE3 |
-| FDCAN1 | CAN 总线通信 | PA11, PA12 |
-| OCTOSPI1 | PSRAM (APS6404) | PB2, PB10, PB13, PD11, PD12, PD13 |
-| OPAMP1/2 | 模拟前端 | PB0, PC4, PE9, PE7 |
+| 外设     | 用途                                                                        | 关键引脚                          |
+| :------- | :-------------------------------------------------------------------------- | :-------------------------------- |
+| SPI1     | AD9959 SDIO0 数据发送 (MOSI) + 读回 (MISO) + 片选 (NSS) + 时钟 (SCK)        | PD7, PB4, PA15, PB3               |
+| SPI3     | AD9959 SDIO1 数据发送 (TX Only) + 时钟                                      | PD6, PC10                         |
+| LPTIM3   | DMAMUX 同步源 (OUT)，同时飞线到 TIM8 ETR (PA0) 和 TIM4 ETR (PE0)            | PA1                               |
+| TIM2     | 保留 (PWM 无输出，不再参与触发链路)                                         | —                                |
+| TIM4     | CS 时序测量 (CH1/CH2 Input Capture)，ETR 由 LPTIM3_OUT (PE0 飞线) 硬件清零  | PB6, PB7, PE0                     |
+| TIM8     | IO_UPDATE (CH1) + DIO3 (CH2) 脉冲输出，由 LPTIM3_OUT → ETR (PA0 飞线) 复位 | PC6, PC7                          |
+| TIM15    | AD9959 REF_CLK 参考时钟 (CH1 PWM)                                           | PC12                              |
+| DMA      | SPI1_TX + SPI3_TX 并行搬运，DMAMUX 同步 = LPTIM3_OUT                        | —                                |
+| GPIO     | DIO2 预留 (PD5)、595 控制 (PE2~PE6)、通用 IO (PD0~PD3)                     | PD5, PE2~PE6, PD0~PD3            |
+| UART4    | AD9959 辅助通信 IO                                                          | PD0, PD1                          |
+| USART1   | 调试串口                                                                    | PA9, PA10                         |
+| USART10  | 595 串行数据 (半双工单线)                                                   | PE3                               |
+| FDCAN1   | CAN 总线通信                                                                | PA11, PA12                        |
+| OCTOSPI1 | PSRAM (APS6404)                                                             | PB2, PB10, PB13, PD11, PD12, PD13 |
+| OPAMP1/2 | 模拟前端                                                                    | PB0, PC4, PE9, PE7                |
 
 ## 5.2 接口示例
 
@@ -245,7 +246,7 @@ AD9959 采用**双线串行模式 (2-wire)**：
 - SDIO2 (PD5, GPIO) — **预留**，当前未使用
 - SCLK — SPI1_SCK (PB3) 与 SPI3_SCK (PC10) 同步同频
 
-TIM2_CH1 (PA0) 作为 DMA 时钟源，每个上升沿同时触发两路 DMA 从乒乓缓冲区搬运数据到 SPI1 和 SPI3 的 TX FIFO，SPI 随即开始发送。
+LPTIM3_OUT (PA1) 作为统一触发源，每个周期匹配时：DMAMUX 同步门打开，同时触发两路 DMA 从乒乓缓冲区搬运数据到 SPI1 和 SPI3 的 TX FIFO，SPI 随即开始并行发送；同时通过飞线 (PA1→PA0, PA1→PE0) 复位 TIM8 和 TIM4 计数器。
 
 驱动层仅提供寄存器访问能力，不实现任何调制算法。
 
@@ -263,24 +264,24 @@ TIM2_CH1 (PA0) 作为 DMA 时钟源，每个上升沿同时触发两路 DMA 从�
 
 **位分配：**
 
-| 芯片 | 位 | 信号 | 用途 |
-|:--|:--|:---|:---|
-| #1 | 0 | NC | 未连接 |
-| #1 | 1 | LEDSTBY | 待机指示灯 |
-| #1 | 2 | LED ANALOGREADY | 模拟前端就绪指示灯 |
-| #1 | 3 | LEDMODREADY | 调制/模式就绪指示灯 |
-| #1 | 4 | LEDCH0TRANSMIT | CH0 发射指示 |
-| #1 | 5 | LEDCH1TRANSMIT | CH1 发射指示 |
-| #1 | 6 | LEDCH2TRANSMIT | CH2 发射指示 |
-| #1 | 7 | LEDCH3TRANSMIT | CH3 发射指示 |
-| #2 | 0 | NC | 未连接 |
-| #2 | 1 | DDSPWREN1V8D | DDS 数字 1.8V 电源使能 |
-| #2 | 2 | DDSPWREN1V8A | DDS 模拟 1.8V 电源使能 |
-| #2 | 3 | DDSMASTERRST | DDS 主复位 |
-| #2 | 4 | DDSPDN | DDS 掉电控制 |
-| #2 | 5 | DDSPWREN_3V3D | DDS 数字 3.3V 电源使能 |
-| #2 | 6 | DDSCLKMODE33 | REF_CLK 模式选择 |
-| #2 | 7 | NC | 未连接 |
+| 芯片 | 位 | 信号            | 用途                   |
+| :--- | :- | :-------------- | :--------------------- |
+| #1   | 0  | NC              | 未连接                 |
+| #1   | 1  | LEDSTBY         | 待机指示灯             |
+| #1   | 2  | LED ANALOGREADY | 模拟前端就绪指示灯     |
+| #1   | 3  | LEDMODREADY     | 调制/模式就绪指示灯    |
+| #1   | 4  | LEDCH0TRANSMIT  | CH0 发射指示           |
+| #1   | 5  | LEDCH1TRANSMIT  | CH1 发射指示           |
+| #1   | 6  | LEDCH2TRANSMIT  | CH2 发射指示           |
+| #1   | 7  | LEDCH3TRANSMIT  | CH3 发射指示           |
+| #2   | 0  | NC              | 未连接                 |
+| #2   | 1  | DDSPWREN1V8D    | DDS 数字 1.8V 电源使能 |
+| #2   | 2  | DDSPWREN1V8A    | DDS 模拟 1.8V 电源使能 |
+| #2   | 3  | DDSMASTERRST    | DDS 主复位             |
+| #2   | 4  | DDSPDN          | DDS 掉电控制           |
+| #2   | 5  | DDSPWREN_3V3D   | DDS 数字 3.3V 电源使能 |
+| #2   | 6  | DDSCLKMODE33    | REF_CLK 模式选择       |
+| #2   | 7  | NC              | 未连接                 |
 
 **接口：**
 
@@ -307,7 +308,7 @@ void HC595_Disable(void);              /* OE 拉高 */
 
 ## 6.5 Trigger
 
-负责 TIM2 → DMA → SPI → TIM8 硬件触发链路的配置与控制。详见第 7 节。
+负责 LPTIM3 → DMA → SPI → TIM8 硬件触发链路的配置与控制。详见第 7 节。
 
 ---
 
@@ -319,14 +320,15 @@ void HC595_Disable(void);              /* OE 拉高 */
                         ┌── DMA_REQ ──► SPI1_TX (PD7) ──► AD9959 SDIO0
                         │    DMA_REQ ──► SPI3_TX (PD6) ──► AD9959 SDIO1
                         │
-PA0 (TIM2_CH1) ─────────┤
-(SPI_9959_DMA_TRIG)     ├── 外部飞线 ──► PE0 (TIM4_ETR)
-                        │                 上升沿 → ETR 硬件自动清零 TIM4 CNT
+PA1 (LPTIM3_OUT) ───────┤
+(LPTIM3_SPIDMA_SYNC)    ├── 外部飞线 ──► PA0 (TIM8_ETR)
+                        │    LPTIM3_OUT 上升沿 → ETR 复位 TIM8 计数器
+                        │       │
+                        │       ├── TIM8_CH1 (PC6) → IO_UPDATE 脉冲
+                        │       └── TIM8_CH2 (PC7) → DIO3 脉冲
                         │
-                        └── TIM2 Update (TRGO) ──► ITR1 ──► TIM8 Reset
-                                                      │
-                                                      ├── TIM8_CH1 (PC6) → IO_UPDATE 脉冲
-                                                      └── TIM8_CH2 (PC7) → DIO3 脉冲
+                        └── 外部飞线 ──► PE0 (TIM4_ETR)
+                             LPTIM3_OUT 上升沿 → ETR 硬件自动清零 TIM4 CNT
 
 PA15 (SPI1_NSS/CS) ─────┬── 直连 ──► PB6 (TIM4_CH1)  CS↓ 捕获 TIM4 计数
                          └── 直连 ──► PB7 (TIM4_CH2)  CS↑ 捕获 TIM4 计数
@@ -338,26 +340,26 @@ PC12 (TIM15_CH1) ────────────────► AD9959 REF_
 
 AD9959 工作于**双线串行模式**，仅使用 SDIO0 和 SDIO1 两条数据线：
 
-| AD9959 引脚 | STM32 信号 | 实现方式 |
-|:--|:--|:--|
-| SDIO0 | SPI1_MOSI (PD7) | SPI1 硬件 MOSI |
-| SDIO1 | SPI3_MOSI (PD6) | SPI3 硬件 MOSI |
-| SDIO2 | GPIO PD5 | **预留**，当前未使用 |
-| SCLK | SPI1_SCK (PB3) | SPI1 时钟（SPI3_SCK (PC10) 同步同频） |
-| CS | SPI1_NSS (PA15) | 硬件 NSS |
+| AD9959 引脚 | STM32 信号      | 实现方式                              |
+| :---------- | :-------------- | :------------------------------------ |
+| SDIO0       | SPI1_MOSI (PD7) | SPI1 硬件 MOSI                        |
+| SDIO1       | SPI3_MOSI (PD6) | SPI3 硬件 MOSI                        |
+| SDIO2       | GPIO PD5        | **预留**，当前未使用            |
+| SCLK        | SPI1_SCK (PB3)  | SPI1 时钟（SPI3_SCK (PC10) 同步同频） |
+| CS          | SPI1_NSS (PA15) | 硬件 NSS                              |
 
 TIM2_CH1 (PA0) 作为时钟源，每个上升沿同时触发两路 DMA 从乒乓缓冲区搬运数据到 SPI1 和 SPI3 的 TX FIFO，SPI 随即开始并行发送。
 
 ## 7.3 时序流程
 
 ```
-    TIM2_CH1 (PA0)
+    LPTIM3_OUT (PA1)
     ──┐         ┌──────────────────────────
-      └─────────┘  上升沿
+      └─────────┘  上升沿 (period match)
       │         │
-      │         ├─ (1) DMA 请求 → SPI1 + SPI3 同时从乒乓缓冲搬运数据到 TX FIFO
-      │         ├─ (2) TIM4_ETR (PE0) 检测上升沿 → 硬件自动清零 TIM4 CNT
-      │         └─ (3) TIM2 Update (TRGO) → ITR1 → TIM8 计数器复位 (Reset Mode)
+      │         ├─ (1) DMAMUX 同步门打开 → SPI1 + SPI3 同时从乒乓缓冲搬运数据到 TX FIFO
+      │         ├─ (2) 飞线 PA1→PE0 → TIM4_ETR 检测上升沿 → 硬件自动清零 TIM4 CNT
+      │         └─ (3) 飞线 PA1→PA0 → TIM8_ETR 检测上升沿 → TIM8 计数器复位 (Reset Mode)
       │
     SPI_CS (PA15, 硬件 NSS)
       │  ┌─────────────────┐
@@ -380,18 +382,18 @@ TIM2_CH1 (PA0) 作为时钟源，每个上升沿同时触发两路 DMA 从乒乓
 
 ## 7.4 TIM4 时序测量（调试用）
 
-| 参数 | 来源 | 用途 |
-|:--|:---|:---|
+| 参数          | 来源                  | 用途                          |
+| :------------ | :-------------------- | :---------------------------- |
 | t_DMA_to_CS↓ | TIM4_CH1 (PB6) 捕获值 | DMA 触发到 SPI 开始通信的延时 |
 | t_DMA_to_CS↑ | TIM4_CH2 (PB7) 捕获值 | DMA 触发到 SPI 通信结束的延时 |
-| t_CS_active | CH2 - CH1 | SPI 通信持续时间 |
+| t_CS_active   | CH2 - CH1             | SPI 通信持续时间              |
 
-- TIM4 CNT 由 ETR (PE0，直连 PA0) 在 TIM2_CH1 上升沿**硬件自动清零**
+- TIM4 CNT 由 ETR (PE0，飞线直连 PA1/LPTIM3_OUT) 在 LPTIM3_OUT 上升沿**硬件自动清零**
 - 捕获值用于**调试阶段**评估 DMA→SPI 的实际延时，帮助开发者选择合适的 TIM8 CH1/CH2 比较值
 
 ## 7.5 TIM8 同步脉冲
 
-TIM8 在从模式 (Reset Mode) 下由 TIM2 Update 事件通过 ITR1 复位：
+TIM8 在从模式 (Reset Mode) 下由 ETR (PA0，飞线直连 PA1/LPTIM3_OUT) 复位：
 
 - **TIM8_CH1 (PC6)**：比较匹配后输出 IO_UPDATE 脉冲给 AD9959
 - **TIM8_CH2 (PC7)**：比较匹配后输出脉冲给 AD9959 DIO3
@@ -607,11 +609,11 @@ DDS_Command → AD9959 寄存器地址 + 数据 → 4 线并行 SPI Frame (32-bi
 
 1. Modulator 填充 DDS_Command 到缓冲区
 2. Encoder 把 DDS_Command 转码为 SPI 帧写入 Ping-Pong Buffer
-3. TIM2 启动，首次 CH1 上升沿同时触发两路 DMA 搬运数据到 SPI1 + SPI3
+3. LPTIM3 启动，首次 period match 时 OUT 上升沿 → DMAMUX 同步门打开 → 两路 DMA 搬运数据到 SPI1 + SPI3
 4. SPI1 与 SPI3 随即并行发送（双线模式）、CS 硬件拉低
-5. TIM4 ETR 检测 CH1 上升沿，硬件清零 CNT；CH1/CH2 分别在 CS↓/CS↑ 捕获
+5. TIM4 ETR (PE0←PA1 飞线) 检测 OUT 上升沿，硬件清零 CNT；CH1/CH2 分别在 CS↓/CS↑ 捕获
 6. 传输结束，CS 硬件拉高
-7. TIM8 被 TIM2 Update 复位，CH1/CH2 在各自校准延迟后输出脉冲 → IO_UPDATE + DIO3
+7. TIM8 ETR (PA0←PA1 飞线) 检测 OUT 上升沿，复位计数器，CH1/CH2 在各自校准延迟后输出脉冲 → IO_UPDATE + DIO3
 8. AD9959 IO 寄存器刷新，新的频率/相位/幅度生效
 9. 循环回到步骤 3（Ping-Pong 切换）
 
@@ -699,15 +701,15 @@ Driver ← App     (跨层反向调用)
 
 # 20 后续开发路线
 
-| 阶段 | 内容 | 验证目标 |
-|:--|:---|:---|
+| 阶段    | 内容                           | 验证目标                       |
+| :------ | :----------------------------- | :----------------------------- |
 | Phase 1 | BSP、AD9959 驱动、DMA Pipeline | SPI 可自动发送并完成 IO_UPDATE |
 | Phase 2 | DDS_Command、Encoder、乒乓缓冲 | 可连续输出固定频率、幅度和相位 |
-| Phase 3 | Scheduler、Packet、Buffer | 支持异步发送和队列管理 |
-| Phase 4 | FSK、ASK、CW | 完成基础调制验证 |
-| Phase 5 | GFSK、MSK | 加入高斯滤波和连续相位调制 |
-| Phase 6 | BPSK、QPSK、QAM | 完善符号映射和相位控制 |
-| Phase 7 | FHSS、脚本控制、录波回放 | 构建完整的软件定义发射机平台 |
+| Phase 3 | Scheduler、Packet、Buffer      | 支持异步发送和队列管理         |
+| Phase 4 | FSK、ASK、CW                   | 完成基础调制验证               |
+| Phase 5 | GFSK、MSK                      | 加入高斯滤波和连续相位调制     |
+| Phase 6 | BPSK、QPSK、QAM                | 完善符号映射和相位控制         |
+| Phase 7 | FHSS、脚本控制、录波回放       | 构建完整的软件定义发射机平台   |
 
 ---
 

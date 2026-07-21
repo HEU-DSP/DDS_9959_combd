@@ -18,7 +18,7 @@
 #include "bsp_spi.h"
 #include "bsp_gpio.h"
 #include "bsp_tim.h"
-#include "hc595.h"
+#include "drv_74hc595_1.h"
 #include <string.h>
 
 /* ================================================================
@@ -27,30 +27,18 @@
 
 static void AD9959_PowerUpSequence(void)
 {
-    HC595_Write(0x0000);
-    HC595_Latch();
-    HC595_OutputEnable(false);
-    HC595_ClearAll();
-
-    HC595_SetBit(2, HC595_CH2_BIT_DDSPWREN1V8D);
-    HC595_Latch();
-    HC595_SetBit(2, HC595_CH2_BIT_DDSPWREN1V8A);
-    HC595_Latch();
-    HAL_Delay(10);
-    HC595_SetBit(2, HC595_CH2_BIT_DDSPWREN_3V3D);
-    HC595_Latch();
-    HC595_SetBit(2, HC595_CH2_BIT_DDSCLKMODE33);
-    HC595_Latch();
-
-    /* Master Reset pulse */
-    HC595_ClrBit(2, HC595_CH2_BIT_DDSMASTERRST);
-    HC595_Latch();
-    HAL_Delay(1);
-    HC595_SetBit(2, HC595_CH2_BIT_DDSMASTERRST);
-    HC595_Latch();
-
-    HC595_OutputEnable(true);
-    HAL_Delay(1);
+    /* Full DDS power-up via 74HC595:
+     *   DRV_595_PowerSeq_Init() handles:
+     *     1. OE disabled, all outputs low
+     *     2. Enable DDS 1.8V digital (DDSPWREN1V8D)
+     *     3. Enable DDS 1.8V analog  (DDSPWREN1V8A)
+     *     4. Wait 10ms for rails
+     *     5. Enable DDS 3.3V digital (DDSPWREN_3V3D)
+     *     6. Set REF_CLK mode = 3.3V (DDSCLKMODE33)
+     *     7. Master Reset pulse (DDSMASTERRST)
+     *     8. Enable outputs
+     */
+    DRV_595_PowerSeq_Init();
 }
 
 /* ================================================================
@@ -124,20 +112,16 @@ void AD9959_IOUpdate(void)
 
 void AD9959_Reset(void)
 {
-    HC595_ClrBit(2, HC595_CH2_BIT_DDSMASTERRST);
-    HC595_Latch();
+    /* DDS Master Reset via 595 (DDSMASTERRST bit, active low) */
+    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 0);   /* assert reset */
     HAL_Delay(1);
-    HC595_SetBit(2, HC595_CH2_BIT_DDSMASTERRST);
-    HC595_Latch();
+    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 1);   /* release reset */
 }
 
 void AD9959_PowerDown(bool enable)
 {
-    if (enable)
-        HC595_SetBit(2, HC595_CH2_BIT_DDSPDN);
-    else
-        HC595_ClrBit(2, HC595_CH2_BIT_DDSPDN);
-    HC595_Latch();
+    /* DDS power-down via 595 (DDSPDN bit) */
+    DRV_595_SetBit(SHIFTREG_DDS_PDN, enable ? 1 : 0);
 }
 
 /* ================================================================
