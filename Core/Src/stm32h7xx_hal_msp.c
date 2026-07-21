@@ -600,7 +600,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
     pSyncConfig.EventEnable = ENABLE;
-    pSyncConfig.RequestNumber = 14;
+    pSyncConfig.RequestNumber = 16;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi1_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();

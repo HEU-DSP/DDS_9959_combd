@@ -21,6 +21,13 @@
 #include "dds_command.h"
 #include "mod_fsk.h"
 #include "mod_ask.h"
+#include "mod_gfsk.h"
+#include "mod_msk.h"
+#include "mod_qpsk.h"
+#include "mod_am.h"
+#include "mod_fm.h"
+#include "mod_bpsk.h"
+#include "mod_4fsk.h"
 
 /* ================================================================
  * Frame timing constraint (from phase1_config.h, default here)
@@ -57,5 +64,26 @@ int FrameBuilder_FSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
  */
 int FrameBuilder_ASK(uint8_t *spi1_buf, uint8_t *spi3_buf,
                      const ASK_Config *cfg, uint8_t bit);
+
+int FrameBuilder_GFSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                      const GFSK_Config *cfg, uint8_t bit);
+
+int FrameBuilder_MSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                     const MSK_Config *cfg, uint8_t bit);
+
+int FrameBuilder_QPSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                      const QPSK_Config *cfg, uint8_t symbol);
+
+int FrameBuilder_AM(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                    const AM_Config *cfg, int16_t sample);
+
+int FrameBuilder_FM(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                    const FM_Config *cfg, int16_t sample);
+
+int FrameBuilder_BPSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                    const BPSK_Config *cfg, uint8_t bit);
+
+int FrameBuilder_4FSK(uint8_t *spi1_buf, uint8_t *spi3_buf,
+                      const FSK4_Config *cfg, uint8_t symbol);
 
 #endif /* __FRAME_BUILDER_H__ */

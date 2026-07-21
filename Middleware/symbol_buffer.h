@@ -31,6 +31,7 @@ extern SymbolBuffer sym_buf;
 void SymbolBuf_Clear(void);
 bool SymbolBuf_WriteBits(const uint8_t *bits, uint16_t count);
 bool SymbolBuf_ReadBit(uint8_t *bit);
+bool SymbolBuf_ReadBits(uint8_t *value, uint8_t nbits);
 bool SymbolBuf_HasData(void);
 bool SymbolBuf_IsFree(void);
 uint16_t SymbolBuf_Count(void);

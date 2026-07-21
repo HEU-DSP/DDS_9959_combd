@@ -89,7 +89,16 @@ Middleware/symbol_buffer.c \
 Middleware/Buffer/frame_builder.c \
 Middleware/Modulator/mod_cw.c \
 Middleware/Modulator/mod_fsk.c \
-Middleware/Modulator/mod_ask.c
+Middleware/Modulator/mod_ask.c \
+Middleware/Modulator/mod_gfsk.c \
+Middleware/Modulator/mod_msk.c \
+Middleware/Modulator/mod_qpsk.c \
+Middleware/Modulator/mod_am.c \
+Middleware/Modulator/mod_fm.c \
+Middleware/Modulator/mod_bpsk.c \
+Middleware/Modulator/mod_4fsk.c \
+
+
 
 # ASM sources
 ASM_SOURCES =  \

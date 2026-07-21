@@ -39,13 +39,23 @@ bool SymbolBuf_WriteBits(const uint8_t *bits, uint16_t count)
 
 bool SymbolBuf_ReadBit(uint8_t *bit)
 {
-    if ((bit == 0) || !sym_buf.ready || (sym_buf.count == 0U)) {
+    return SymbolBuf_ReadBits(bit, 1U);
+}
+
+bool SymbolBuf_ReadBits(uint8_t *value, uint8_t nbits)
+{
+    if ((value == 0) || !sym_buf.ready || (nbits == 0U) ||
+        (nbits > 8U) || (sym_buf.count < nbits)) {
         return false;
     }
 
-    *bit = sym_buf.data[sym_buf.read_index] & 0x01U;
-    sym_buf.read_index++;
-    sym_buf.count--;
+    uint8_t out = 0;
+    for (uint8_t i = 0; i < nbits; i++) {
+        out = (uint8_t)((out << 1) | (sym_buf.data[sym_buf.read_index] & 0x01U));
+        sym_buf.read_index++;
+        sym_buf.count--;
+    }
+    *value = out;
 
     if (sym_buf.count == 0U) {
         /* Releasing the buffer here is the handoff back to App/main context. */
