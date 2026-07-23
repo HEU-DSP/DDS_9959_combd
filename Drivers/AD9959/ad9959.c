@@ -19,7 +19,25 @@
 #include "bsp_gpio.h"
 #include "bsp_tim.h"
 #include "drv_74hc595_1.h"
+#include "detect_task.h"
 #include <string.h>
+
+/* ================================================================
+ * Internal: Timeout Wait (debugger-friendly, HAL_GetTick based)
+ * ================================================================ */
+
+/**
+  * @brief  Block until timeout entry expires.
+  * @param  toe: timeout entry index (enum errorlist)
+  * @note   Uses Detect_Hook + Detect_Task polling — allows debugger break.
+  */
+static void AD9959_WaitToe(uint8_t toe)
+{
+    Detect_Hook(toe);
+    while (!is_TOE_Overtime(toe)) {
+        Detect_Task();
+    }
+}
 
 /* ================================================================
  * Internal: Power-Up Sequence (via 595)
@@ -43,31 +61,35 @@ static void AD9959_PowerUpSequence(void)
 
 /* ================================================================
  * Internal: PLL Configuration (FR1)
- * REF_CLK = 50 MHz (TIM15), SYSCLK = 500 MHz
- * PFD = 50/2 = 25 MHz, PLL x20 = 500 MHz
+ * REF_CLK = 25.6 MHz (TIM15: ARR=9 → 256/10), SYSCLK = 486.4 MHz
+ * PFD = 25.6 MHz, PLL ×19 = 486.4 MHz (max ≤500 MHz per DS)
  * ================================================================ */
 
-static void AD9959_ConfigPLL(void)
+void AD9959_ConfigPLL(void)
 {
-    /* Start 50 MHz REF_CLK from TIM15 first */
-    BSP_TIM15_SetREFCLK(50000000UL);
+    /* TIM15 REFCLK: ARR=9 → 256 MHz/(9+1) = 25.6 MHz, 50% duty */
+    BSP_TIM15_SetREFCLK(25000000UL);
     BSP_TIM15_Start();
 
     uint8_t fr1_data[3];
     uint32_t fr1_val = 0;
 
-    /* VCO gain = HIGH (SYSCLK > 255 MHz)  [23] */
+    /* VCO gain = HIGH (SYSCLK 486.4 MHz > 255 MHz)  [23] */
     fr1_val |= FR1_VCO_GAIN_HIGH;
-    /* PLL divider = 20  [22:18] */
-    fr1_val |= FR1_PLL_DIV(20);
-    /* Charge pump = 150 uA  [17:16] */
-    fr1_val |= FR1_CP_150uA;
+    /* PLL multiplier = 19  [22:18]  (25.6 × 19 = 486.4 MHz) */
+    fr1_val |= FR1_PLL_DIV(19);
+    /* Charge pump = 75 uA  [17:16]  (DS: best phase noise) */
+    fr1_val |= FR1_CP_75uA;
 
     fr1_data[0] = (fr1_val >> 16) & 0xFF;
     fr1_data[1] = (fr1_val >> 8)  & 0xFF;
     fr1_data[2] =  fr1_val        & 0xFF;
 
     AD9959_WriteRegister(AD9959_REG_FR1, fr1_data, 3);
+
+    /* IO_UPDATE required to latch FR1 and start PLL.
+       Without this, PLL stays disabled → SYSCLK = REFCLK = 25.6 MHz. */
+    AD9959_IOUpdate();
 }
 
 /* ================================================================
@@ -76,16 +98,23 @@ static void AD9959_ConfigPLL(void)
 
 void AD9959_Init(void)
 {
-    AD9959_PowerUpSequence();
-    AD9959_ConfigPLL();
+    /* Phase 1: Power rails via 595 + stability wait */
+    AD9959_PowerUpSequence();                    /* 595: power rails ON             */
+    AD9959_WaitToe(DDS_POWER_STABLE_TOE);        /* 15ms: rail + REFCLK stabilize   */
 
-    /* Enable all 4 channels, 2-bit serial (SDIO0+SDIO1), MSB first */
-    uint8_t csr = CSR_CH0_ENABLE | CSR_CH1_ENABLE |
-                  CSR_CH2_ENABLE | CSR_CH3_ENABLE;
-    csr |= CSR_IO_MODE_2BIT;
+    /* Phase 2: Hardware Master Reset (via 595 DDSMASTERRST) */
+    AD9959_Reset();                              /* MRST pulse, 2ms hold            */
+    AD9959_WaitToe(DDS_RESET_RECOVERY_TOE);      /* 5ms: register defaults settle   */
+
+    /* Phase 3: PLL configuration (TIM15 REFCLK + FR1 write) */
+    AD9959_ConfigPLL();                          /* REFCLK=25.6MHz, PLL×19=486.4MHz */
+    AD9959_WaitToe(DDS_PLL_LOCK_TOE);            /* 1ms: PLL lock                   */
+
+    /* Phase 4: CSR — single-bit 2-wire mode, CH0 only
+       (channel enable takes effect immediately, no IO_UPDATE needed.
+        IO_UPDATE deferred to Debug_CW_Test / app-level after all channel regs) */
+    uint8_t csr = CSR_CH0_ENABLE;
     AD9959_WriteRegister(AD9959_REG_CSR, &csr, 1);
-
-    AD9959_IOUpdate();
 }
 
 void AD9959_IOUpdate(void)
@@ -112,10 +141,11 @@ void AD9959_IOUpdate(void)
 
 void AD9959_Reset(void)
 {
-    /* DDS Master Reset via 595 (DDSMASTERRST bit, active low) */
-    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 0);   /* assert reset */
-    HAL_Delay(1);
-    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 1);   /* release reset */
+    /* DDS Master Reset via 595 — AD9959 MASTER_RESET pin is ACTIVE HIGH
+       (DS p9: "Active High Reset Pin"). Assert = HIGH, Release = LOW. */
+    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 1);   /* assert reset (high) */
+    AD9959_WaitToe(DDS_RESET_HOLD_TOE);           /* 2ms hold            */
+    DRV_595_SetBit(SHIFTREG_DDS_MASTERRST, 0);   /* release reset (low) */
 }
 
 void AD9959_PowerDown(bool enable)
@@ -136,10 +166,8 @@ void AD9959_WriteRegister(uint8_t reg, const uint8_t *data, uint8_t num_bytes)
     memcpy(frame + 1, data, num_bytes);
     uint8_t total = num_bytes + 1;
 
-    /* Blocking dual-SPI transmit (for init phase).
-     * Runtime uses DMA-based trigger instead. */
+    /* Blocking SPI transmit — SPI1 only (SDIO_0). SPI3 unused in single-bit mode. */
     BSP_SPI_Transmit(SPI1, frame, total);
-    BSP_SPI_Transmit(SPI3, frame, total);
 }
 
 void AD9959_ReadRegister(uint8_t reg, uint8_t *data, uint8_t num_bytes)
@@ -198,4 +226,46 @@ void AD9959_SetChannelMask(uint8_t channel_mask)
     uint8_t csr = (channel_mask << 4) & CSR_CHANNEL_MASK;
     csr |= CSR_IO_MODE_2BIT;
     AD9959_WriteRegister(AD9959_REG_CSR, &csr, 1);
+}
+
+/* ================================================================
+ * Debug: Single-Channel CW Test
+ * ================================================================ */
+
+/**
+  * @brief  Configure CH0 for CW output at given frequency, max amplitude.
+  * @param  freq_hz: output frequency in Hz (e.g. 200000000)
+  * @note   Call after AD9959_Init(). Blocking SPI, single-wire mode.
+  */
+void AD9959_Debug_CW_Test(uint32_t freq_hz)
+{
+    /* 1. CFR: sine output + DAC full current + matched pipe delays (DS: single-tone) */
+    uint8_t cfr[3];
+    uint32_t cfr_val = CFR_DAC_FULL_CURRENT | CFR_SINE_OUT_ENABLE
+                     | CFR_MATCHED_PIPE_DELAYS;
+    cfr[0] = (cfr_val >> 16) & 0xFF;
+    cfr[1] = (cfr_val >> 8)  & 0xFF;
+    cfr[2] =  cfr_val        & 0xFF;
+    AD9959_WriteRegister(AD9959_REG_CFR, cfr, 3);
+
+    /* 2. CFTW: freq_hz / 486.4 MHz × 2^32 */
+    uint64_t ftw = ((uint64_t)freq_hz << 32) / AD9959_SYSCLK_HZ;
+    uint8_t ftw_buf[4];
+    ftw_buf[0] = (ftw >> 24) & 0xFF;
+    ftw_buf[1] = (ftw >> 16) & 0xFF;
+    ftw_buf[2] = (ftw >> 8)  & 0xFF;
+    ftw_buf[3] =  ftw        & 0xFF;
+    AD9959_WriteRegister(AD9959_REG_CFTW, ftw_buf, 4);
+
+    /* 3. ACR: max amplitude (ASF=0x3FF), amp multiplier enabled */
+    uint8_t acr[3];
+    uint32_t acr_val = ((uint32_t)(0x3FF & ACR_ASF_Msk) << ACR_ASF_Pos)
+                     | ACR_AMP_MULT_ENABLE;
+    acr[0] = (acr_val >> 16) & 0xFF;
+    acr[1] = (acr_val >> 8)  & 0xFF;
+    acr[2] =  acr_val        & 0xFF;
+    AD9959_WriteRegister(AD9959_REG_ACR, acr, 3);
+
+    /* 4. IO_UPDATE: latch all registers */
+    AD9959_IOUpdate();
 }

@@ -145,12 +145,13 @@ void DRV_595_PowerSeq_Init(void)
 {
     uint16_t val;
 
-    /* Step 1: All off, OE disabled */
+    /* Step 1: All off, OE disabled, hold DDS in reset */
     DRV_595_EnableOutput(0);
-    DRV_595_Write(0x0000);
+    val = SHIFTREG_DDS_MASTERRST;               /* MASTER_RESET = HIGH (active high, DS p9) */
+    DRV_595_Write(val);
 
-    /* Step 2: Enable DDS 1.8V digital */
-    val = SHIFTREG_DDS_PWREN_1V8D;
+    /* Step 2: Enable DDS 1.8V digital (MASTER_RESET stays HIGH) */
+    val |= SHIFTREG_DDS_PWREN_1V8D;
     DRV_595_Write(val);
 
     /* Step 3: Enable DDS 1.8V analog */
@@ -166,14 +167,10 @@ void DRV_595_PowerSeq_Init(void)
     val |= SHIFTREG_DDS_CLKMODE33;
     DRV_595_Write(val);
 
-    /* Step 6: Master Reset pulse */
-    val &= ~SHIFTREG_DDS_MASTERRST;   /* assert reset (low) */
-    DRV_595_Write(val);
-    HAL_Delay(1);
-    val |= SHIFTREG_DDS_MASTERRST;    /* release reset (high) */
-    DRV_595_Write(val);
+    /* DDS held in reset (MASTER_RESET=HIGH) until AD9959_Init releases it.
+       This keeps DDS inactive while power rails stabilize. */
 
-    /* Step 7: Enable outputs */
+    /* Step 6: Enable outputs */
     DRV_595_EnableOutput(1);
     HAL_Delay(1);
 }
@@ -188,4 +185,24 @@ void DRV_595_PowerSeq_Sleep(void)
     /* Power down DDS via DDSPDN, keep other states */
     val = g_shiftreg_state | SHIFTREG_DDS_PDN;
     DRV_595_Write(val);
+}
+
+/**
+  * @brief  Sync debugger-modified g_595 state to 595 hardware.
+  *         Call periodically in main loop.
+  *         If g_595.raw was changed (via debugger watch window), writes to HW.
+  * @note   Rate-limited to ~100ms between actual writes to avoid bus thrashing.
+  */
+void DRV_595_Refresh(void)
+{
+    if (g_595.raw == g_shiftreg_state)
+        return;
+
+    static uint32_t last_tick = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_tick >= 100)
+    {
+        last_tick = now;
+        DRV_595_Write(g_595.raw);
+    }
 }

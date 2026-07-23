@@ -6,7 +6,7 @@
  * Clock frequencies (from CubeMX RCC config):
  *   TIM4  (APB1)  = 135 MHz
  *   TIM8  (APB2)  = 135 MHz
- *   TIM15 (APB2)  = 135 MHz
+ *   TIM15 (APB2) clock = HCLK = 256 MHz (HSE=12M, PLL1: /3×128, HCLK=/2)
  *   LPTIM3 (D3PCLK1) = 135 MHz, prescaler /1
  ******************************************************************************
  */
@@ -69,10 +69,12 @@ void BSP_TIM8_Stop(void)
 
 void BSP_TIM15_SetREFCLK(uint32_t freq_hz)
 {
-    uint32_t arr = (135000000UL / freq_hz) - 1;
+    uint32_t tim_clk = HAL_RCC_GetHCLKFreq();   /* TIM15 clock == HCLK */
+    uint32_t arr = (tim_clk / freq_hz) - 1;
     if (arr < 2) arr = 2;
+    if (arr > 65535) arr = 65535;
     __HAL_TIM_SET_AUTORELOAD(&htim15, arr);
-    __HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, arr / 2);
+    __HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, (arr + 1) / 2);
 }
 
 void BSP_TIM15_Start(void)

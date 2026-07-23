@@ -10,21 +10,19 @@
 #ifndef __PHASE1_CONFIG_H__
 #define __PHASE1_CONFIG_H__
 
+#include "ad9959.h"
 #include "mod_fsk.h"
 #include "mod_ask.h"
 
 /* ================================================================
- * AD9959 System Clock
+ * FTW constants (FTW = f_out / AD9959_SYSCLK_HZ * 2^32)
+ *   10 MHz →  88330086 (0x0543E3E6)
+ *   11 MHz →  97163095 (0x05CA9ED7)
+ *   200 MHz → 1766601716 (0x694F41F4)
  * ================================================================ */
-#define AD9959_SYSCLK_HZ   500000000UL   /* 500 MHz (PLL x20, REF=50MHz) */
-
-/* ================================================================
- * FTW constants (FTW = f_out / SYSCLK * 2^32)
- *   10 MHz →  85899346 (0x051EB852)
- *   11 MHz →  94489280 (0x05A1CAC0)
- * ================================================================ */
-#define FTW_10MHZ  85899346UL
-#define FTW_11MHZ  94489280UL
+#define FTW_10MHZ  88330086UL
+#define FTW_11MHZ  97163095UL
+#define FTW_200MHZ 1766601716UL
 
 /* ================================================================
  * Phase 1 default baud rate + oversampling (App layer sets these)

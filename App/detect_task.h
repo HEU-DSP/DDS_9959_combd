@@ -1,8 +1,9 @@
 #ifndef __DETECT_TASK_H
 #define __DETECT_TASK_H
 
-#include "controller.h"
+#include <stdint.h>
 #include <stdbool.h>
+#include "main.h"
 
 #define USER_GetTick HAL_GetTick
 
@@ -24,17 +25,13 @@ typedef struct
 
 enum errorlist
 {
-    ADC1_WATCHDOG1_TOE,
-    ADC1_WATCHDOG2_TOE,
-    ADC2_WATCHDOG1_TOE,
-    CONNECTING_TO_CONNECTED_TOE,
-    CAN_BIGCUP_RX_TOE,
-    USART3_TX_TOE,
-    USART3_RX_TOE,
-    CONNECTED_UVLO_TIMEOUT_TOE,
-    CAN_MIAO_RX_TOE,
-    DETECT_LIST_LENGTH,
+    /* DDS Power-Up Sequence — AD9959 datasheet timing (HSE=12M, SYSCLK=486.4MHz) */
+    DDS_POWER_STABLE_TOE,     /**< 15ms: wait for 1.8V/3.3V rails + REFCLK to stabilize */
+    DDS_RESET_HOLD_TOE,       /**<  2ms: Master Reset hold time (active low pulse width)    */
+    DDS_RESET_RECOVERY_TOE,   /**<  5ms: wait after Master Reset release for register defaults */
+    DDS_PLL_LOCK_TOE,         /**<  1ms: PLL lock time after FR1 write                     */
 
+    DETECT_LIST_LENGTH,
 };
 
 void Detect_Init();

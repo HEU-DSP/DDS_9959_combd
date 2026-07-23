@@ -4,18 +4,13 @@ static Detect_t Detect_List[DETECT_LIST_LENGTH + 1]={0};
 
 void Detect_Init()
 {
-    float set_item[DETECT_LIST_LENGTH] = 
+    float set_item[DETECT_LIST_LENGTH] =
     {
         // ms, order matches enum errorlist in detect_task.h
-        1000,   // ADC1_WATCHDOG1_TOE: VIN analog watchdog timeout
-        1000,   // ADC1_WATCHDOG2_TOE: VOUT analog watchdog timeout
-        1000,   // ADC2_WATCHDOG1_TOE: current analog watchdog timeout
-        400,    // CONNECTING_TO_CONNECTED_TOE: delay before switching to Connected
-        120,    // CAN_BIGCUP_RX_TOE: CAN receive timeout
-        200,    // USART3_TX_TOE: USART3 transmit completion timeout
-        400,    // USART3_RX_TOE: USART3 receive timeout
-        5000,   // Connected_UVLO_timeout: timeout for undervoltage lockout in Connected state
-        120,    // CAN_MIAO_RX_TOE: CAN receive timeout for Miao
+        1500,     // DDS_POWER_STABLE_TOE:   power rail stabilization (10ms rail + 5ms margin)
+         200,     // DDS_RESET_HOLD_TOE:     master reset hold time (min 1 SYSCLK cycle)
+         500,     // DDS_RESET_RECOVERY_TOE: reset recovery wait
+         100,     // DDS_PLL_LOCK_TOE:       PLL lock time
     };
 
     for(uint8_t i = 0;i<DETECT_LIST_LENGTH;i++)

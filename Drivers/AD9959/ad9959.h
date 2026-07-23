@@ -12,6 +12,12 @@
 #include <stdbool.h>
 
 /* ================================================================
+ * AD9959 System Clock (REFCLK × PLL multiplier)
+ * REFCLK = 25.6 MHz (TIM15), PLL ×19 → SYSCLK = 486.4 MHz
+ * ================================================================ */
+#define AD9959_SYSCLK_HZ   486400000UL
+
+/* ================================================================
  * Initialization & Control
  * ================================================================ */
 
@@ -25,6 +31,7 @@
  * @note   Call DRV_595_Init() before this.
  */
 void AD9959_Init(void);
+void AD9959_ConfigPLL(void);
 
 /**
  * @brief  Trigger IO_UPDATE pulse via TIM8 CH1 hardware
@@ -92,5 +99,12 @@ void AD9959_SetPOW(uint8_t channel, uint16_t pow);
  * @param  channel_mask : bitmask (CSR_CH0_ENABLE | CSR_CH1_ENABLE | ...)
  */
 void AD9959_SetChannelMask(uint8_t channel_mask);
+
+/**
+ * @brief  Debug: configure CH0 for CW output at given frequency, max amplitude.
+ * @param  freq_hz: output frequency in Hz (e.g. 200000000)
+ * @note   Call after AD9959_Init(). Blocking SPI, single-wire mode.
+ */
+void AD9959_Debug_CW_Test(uint32_t freq_hz);
 
 #endif /* __AD9959_H__ */

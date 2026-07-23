@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "ad9959.h"
 #include "drv_74hc595_1.h"
+#include "detect_task.h"
 #include "trigger.h"
 //#include "bsp_dma.h"
 #include "bsp_spi.h"
@@ -204,37 +205,43 @@ int main(void)
   MX_LPTIM3_Init();
   /* USER CODE BEGIN 2 */
 
-  /* ---- Init frame timing ---- */
-  tx_timing.baud_rate       = P1_BAUD_RATE;
-  tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
-  TxTiming_Update();
+  /* ---- Init timeout detection framework ---- */
+  Detect_Init();
 
-  /* ---- App: configure CH0 as CW 10 MHz ---- */
-  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
-  SymbolBuf_Clear();
+//  /* ---- Init frame timing ---- */
+//  tx_timing.baud_rate       = P1_BAUD_RATE;
+//  tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
+//  TxTiming_Update();
+//
+//  /* ---- App: configure CH0 as CW 10 MHz ---- */
+//  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
+//  SymbolBuf_Clear();
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   DRV_595_Init();
   AD9959_Init();
 
-  /* ---- Prime first frame ---- */
-  Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes);
-  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
-  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+  /* ---- Debug: CH0 200 MHz CW, max amplitude ---- */
+  AD9959_Debug_CW_Test(200000000UL);
 
-  /* ---- Initialize trigger chain ---- */
-  Trigger_Config trig_cfg = {
-      .spi1_ping   = tx_bank[0].spi1,
-      .spi3_ping   = tx_bank[0].spi3,
-      .spi1_pong   = tx_bank[1].spi1,
-      .spi3_pong   = tx_bank[1].spi3,
-      .bank_size  = tx_bank_bytes,
-      .sample_rate = tx_timing.sample_rate,
-      .ch1_delay   = P1_CH1_DELAY,
-      .ch2_delay   = P1_CH2_DELAY,
-  };
-  Trigger_Init(&trig_cfg);
-  Trigger_Start();
+//  /* ---- Prime first frame ---- */
+//  Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes);
+//  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
+//  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+//
+//  /* ---- Initialize trigger chain ---- */
+//  Trigger_Config trig_cfg = {
+//      .spi1_ping   = tx_bank[0].spi1,
+//      .spi3_ping   = tx_bank[0].spi3,
+//      .spi1_pong   = tx_bank[1].spi1,
+//      .spi3_pong   = tx_bank[1].spi3,
+//      .bank_size  = tx_bank_bytes,
+//      .sample_rate = tx_timing.sample_rate,
+//      .ch1_delay   = P1_CH1_DELAY,
+//      .ch2_delay   = P1_CH2_DELAY,
+//  };
+//  Trigger_Init(&trig_cfg);
+//  Trigger_Start();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -245,55 +252,67 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+      /* Timeout detection polling (see detect_task.h/c) */
+      Detect_Task();
+
       uint32_t now = HAL_GetTick();
       if (now - last_tick >= 100) {
           last_tick = now;
 
-          if (SymbolBuf_IsFree()) {
-              static int test_pattern = 0;
-              test_pattern = (test_pattern + 1) % 3;
-              switch (test_pattern) {
-              case 0:
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
-                  SymbolBuf_Clear();
-                  break;
-              case 1:
-              {
-                  static const uint8_t fsk_bits[] = {1, 0, 1, 0, 1, 1, 0, 0};
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetFSK(0, FTW_11MHZ, FTW_10MHZ, 0x3FF);
-                  SymbolBuf_WriteBits(fsk_bits, sizeof(fsk_bits));
-                  break;
-              }
-              case 2:
-              {
-                  static const uint8_t ask_bits[] = {1, 0, 1, 0, 1, 0, 0, 1};
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetASK(0, FTW_10MHZ, 0x3FF, 0x000);
-                  SymbolBuf_WriteBits(ask_bits, sizeof(ask_bits));
-                  break;
-              }
-              }
-          }
-          if (!tx_running) {
-              if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
-                  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
-                  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
-                  tx_active = 0;
-                  Trigger_Restart();
-                  tx_running = true;
-              }
-          }
+          /* Sync debugger-modified 595 state to hardware */
+          DRV_595_Refresh();
+
+          /* Debug: reset + reconfigure AD9959 every 100ms.
+             Scope SPI bus / IO_UPDATE to verify register writes. */
+          AD9959_Reset();
+          AD9959_ConfigPLL();
+          AD9959_Debug_CW_Test(200000000UL);
+
+//          if (SymbolBuf_IsFree()) {
+//              static int test_pattern = 0;
+//              test_pattern = (test_pattern + 1) % 3;
+//              switch (test_pattern) {
+//              case 0:
+//                  ModCfg_Disable(0);
+//                  ModCfg_Disable(1);
+//                  ModCfg_Disable(2);
+//                  ModCfg_Disable(3);
+//                  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
+//                  SymbolBuf_Clear();
+//                  break;
+//              case 1:
+//              {
+//                  static const uint8_t fsk_bits[] = {1, 0, 1, 0, 1, 1, 0, 0};
+//                  ModCfg_Disable(0);
+//                  ModCfg_Disable(1);
+//                  ModCfg_Disable(2);
+//                  ModCfg_Disable(3);
+//                  ModCfg_SetFSK(0, FTW_11MHZ, FTW_10MHZ, 0x3FF);
+//                  SymbolBuf_WriteBits(fsk_bits, sizeof(fsk_bits));
+//                  break;
+//              }
+//              case 2:
+//              {
+//                  static const uint8_t ask_bits[] = {1, 0, 1, 0, 1, 0, 0, 1};
+//                  ModCfg_Disable(0);
+//                  ModCfg_Disable(1);
+//                  ModCfg_Disable(2);
+//                  ModCfg_Disable(3);
+//                  ModCfg_SetASK(0, FTW_10MHZ, 0x3FF, 0x000);
+//                  SymbolBuf_WriteBits(ask_bits, sizeof(ask_bits));
+//                  break;
+//              }
+//              }
+//          }
+//          if (!tx_running) {
+//              if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
+//                  memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
+//                  memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+//                  tx_active = 0;
+//                  Trigger_Restart();
+//                  tx_running = true;
+//              }
+//          }
       }
   }
   /* USER CODE END 3 */
@@ -325,8 +344,8 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 5;
-  RCC_OscInitStruct.PLL.PLLN = 108;
+  RCC_OscInitStruct.PLL.PLLM = 3;
+  RCC_OscInitStruct.PLL.PLLN = 128;
   RCC_OscInitStruct.PLL.PLLP = 1;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
@@ -374,10 +393,10 @@ void PeriphCommonClock_Config(void)
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_OSPI|RCC_PERIPHCLK_SPI3
                               |RCC_PERIPHCLK_SPI1|RCC_PERIPHCLK_FDCAN
                               |RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_UART4;
-  PeriphClkInitStruct.PLL2.PLL2M = 8;
+  PeriphClkInitStruct.PLL2.PLL2M = 4;
   PeriphClkInitStruct.PLL2.PLL2N = 160;
   PeriphClkInitStruct.PLL2.PLL2P = 2;
-  PeriphClkInitStruct.PLL2.PLL2Q = 5;
+  PeriphClkInitStruct.PLL2.PLL2Q = 4;
   PeriphClkInitStruct.PLL2.PLL2R = 2;
   PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_1;
   PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
@@ -664,11 +683,11 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -712,7 +731,7 @@ static void MX_SPI3_Init(void)
   hspi3.Instance = SPI3;
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
