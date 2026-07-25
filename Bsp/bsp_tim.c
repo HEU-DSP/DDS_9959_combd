@@ -18,9 +18,6 @@ extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
 extern TIM_HandleTypeDef htim15;
 
-static volatile uint32_t tim4_cs_start = 0;
-static volatile uint32_t tim4_cs_end   = 0;
-
 /* ================================================================
  * TIM2 — DMA Trigger (CH1 PWM, TRGO=UPDATE → ITR1 → TIM8)
  * ================================================================ */
@@ -53,22 +50,25 @@ void BSP_TIM2_Stop(void)
 
 void BSP_TIM4_Start(void)
 {
-    /* Start capture interrupts as well as the counter.  The timing values
-     * used by Trigger_GetCaptureTiming() are updated in the HAL callback. */
-    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
-    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_2);
+    TIM4->SR = 0U;
+    TIM4->CNT = 0U;
+    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_2);
 }
 
 void BSP_TIM4_Stop(void)
 {
-    HAL_TIM_IC_Stop_IT(&htim4, TIM_CHANNEL_1);
-    HAL_TIM_IC_Stop_IT(&htim4, TIM_CHANNEL_2);
+    HAL_TIM_IC_Stop(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_IC_Stop(&htim4, TIM_CHANNEL_2);
 }
 
 void BSP_TIM4_GetCaptures(uint32_t *cs_start, uint32_t *cs_end)
 {
-    if (cs_start) *cs_start = tim4_cs_start;
-    if (cs_end)   *cs_end   = tim4_cs_end;
+    if (cs_start) *cs_start = TIM4->CCR1;
+    if (cs_end)   *cs_end   = TIM4->CCR2;
+    __HAL_TIM_CLEAR_FLAG(&htim4,
+                         TIM_FLAG_CC1 | TIM_FLAG_CC2 |
+                         TIM_FLAG_CC1OF | TIM_FLAG_CC2OF);
 }
 
 /* ================================================================
@@ -85,7 +85,8 @@ void BSP_TIM8_Start(void)
     /* Configure the continuous DMA synchronisation chain. Direct one-bit
      * bring-up does not use TIM8 and leaves this state untouched. */
     TIM8->CR1 &= ~(TIM_CR1_CEN | TIM_CR1_OPM);
-    TIM8->SMCR = TIM_SLAVEMODE_RESET | TIM_TS_ITR1;
+    /* LPTIM3_OUT is externally fanned out to TIM8_ETR (PA0). */
+    TIM8->SMCR = TIM_SLAVEMODE_RESET | TIM_TS_ETRF;
     TIM8->PSC = 0U;
     TIM8->ARR = 0xFFFFU;
     TIM8->CNT = 0U;
@@ -137,13 +138,7 @@ void BSP_TIM15_Start(void)
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM4) {
-        if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-            tim4_cs_start = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-        } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
-            tim4_cs_end = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-        }
-    }
+    (void)htim;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -155,25 +150,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  * LPTIM1 — DMA Sync Gate (16 MHz after /8 prescaler)
  * ================================================================ */
 
-extern LPTIM_HandleTypeDef hlptim1;
-static uint16_t lptim1_period = 0;
+extern LPTIM_HandleTypeDef hlptim3;
+static uint16_t lptim3_period = 0;
 
-void BSP_LPTIM1_SetPeriod(uint16_t period)
+void BSP_LPTIM3_SetPeriod(uint16_t period)
 {
-    lptim1_period = period;
-    hlptim1.Instance->ARR = period;
+    lptim3_period = period;
+    hlptim3.Instance->ARR = period;
 }
 
-void BSP_LPTIM1_Start(uint16_t period)
+void BSP_LPTIM3_Start(uint16_t period)
 {
     if (period > 0) {
-        lptim1_period = period;
-        hlptim1.Instance->ARR = period;
+        lptim3_period = period;
+        hlptim3.Instance->ARR = period;
     }
-    HAL_LPTIM_Counter_Start(&hlptim1, lptim1_period);
+    HAL_LPTIM_Counter_Start(&hlptim3, lptim3_period);
 }
 
-void BSP_LPTIM1_Stop(void)
+void BSP_LPTIM3_Stop(void)
 {
-    HAL_LPTIM_Counter_Stop(&hlptim1);
+    HAL_LPTIM_Counter_Stop(&hlptim3);
 }

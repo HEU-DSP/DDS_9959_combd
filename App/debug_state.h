@@ -62,7 +62,23 @@ typedef struct {
     uint32_t tim8_ccr2;
 } AD9959_Diag;
 
+typedef struct {
+    uint32_t cs_start_ticks;
+    uint32_t cs_end_ticks;
+    uint32_t cs_width_ticks;
+    uint32_t capture_valid_count;
+    uint32_t capture_error_count;
+    uint32_t capture_overrun_count;
+    uint32_t capture_status;
+    uint32_t io_update_ticks;
+    uint32_t dio3_ticks;
+    uint32_t safety_margin_ticks;
+    uint32_t spi1_error;
+    uint32_t spi3_error;
+} AD9959_TimingDebug;
+
 extern DebugState ds;
 extern volatile AD9959_Diag ad9959_diag;
+extern volatile AD9959_TimingDebug ad9959_timing_debug;
 
 #endif /* __DEBUG_STATE_H__ */

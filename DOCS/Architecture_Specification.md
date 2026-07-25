@@ -319,11 +319,11 @@ void HC595_Disable(void);              /* OE 拉高 */
                         ┌── DMA_REQ ──► SPI1_TX (PD7) ──► AD9959 SDIO0
                         │    DMA_REQ ──► SPI3_TX (PD6) ──► AD9959 SDIO1
                         │
-PA0 (TIM2_CH1) ─────────┤
+PA0 (lptim3_out) ─────────┤
 (SPI_9959_DMA_TRIG)     ├── 外部飞线 ──► PE0 (TIM4_ETR)
                         │                 上升沿 → ETR 硬件自动清零 TIM4 CNT
                         │
-                        └── TIM2 Update (TRGO) ──► ITR1 ──► TIM8 Reset
+                        └── LPTIM3_OUT ──► ITR1 ──► TIM8 Reset
                                                       │
                                                       ├── TIM8_CH1 (PC6) → IO_UPDATE 脉冲
                                                       └── TIM8_CH2 (PC7) → DIO3 脉冲

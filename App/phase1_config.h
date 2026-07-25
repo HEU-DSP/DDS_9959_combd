@@ -68,9 +68,12 @@
 #define P1_CH1_DELAY            200U      /* TIM8 CH1 initial delay ticks       */
 #define P1_CH2_DELAY            210U      /* TIM8 CH2 initial delay ticks       */
 
-/* TIM4 is a measurement-only CS capture path.  Keep it off unless PA15 is
- * physically wired to both PB6/PB7 and PA0 is wired to PE0. */
-#define AD9959_TIM4_CALIBRATION_ENABLE  0
+/* TIM4 is a measurement-only CS capture path in phase 1.  Enable only when:
+ *   PA15 (AD9959 CS) -> PB6 (TIM4_CH1) and PB7 (TIM4_CH2)
+ *   PA0  (TIM2_CH1)  -> PE0 (TIM4_ETR)
+ * MONITOR reads CCR1/CCR2 only; AUTOCAL is intentionally off for now. */
+#define AD9959_TIM4_MONITOR_ENABLE  1
+#define AD9959_TIM4_AUTOCAL_ENABLE  0
 
 /* Keep a DMA fault frozen for Ozone inspection.  Set to 1 only after the
  * fault cause is understood and automatic recovery is desired. */

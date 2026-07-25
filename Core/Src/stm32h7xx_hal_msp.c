@@ -61,7 +61,7 @@ extern DMA_HandleTypeDef hdma_spi3_tx;
 /* USER CODE END 0 */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                                            /**
+                                        /**
   * Initializes the Global MSP.
   */
 void HAL_MspInit(void)
@@ -256,30 +256,43 @@ void HAL_FMAC_MspDeInit(FMAC_HandleTypeDef* hfmac)
   */
 void HAL_LPTIM_MspInit(LPTIM_HandleTypeDef* hlptim)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-  if(hlptim->Instance==LPTIM1)
+  if(hlptim->Instance==LPTIM3)
   {
-    /* USER CODE BEGIN LPTIM1_MspInit 0 */
+    /* USER CODE BEGIN LPTIM3_MspInit 0 */
 
-    /* USER CODE END LPTIM1_MspInit 0 */
+    /* USER CODE END LPTIM3_MspInit 0 */
 
   /** Initializes the peripherals clock
   */
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LPTIM1;
-    PeriphClkInitStruct.Lptim1ClockSelection = RCC_LPTIM1CLKSOURCE_D2PCLK1;
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LPTIM3;
+    PeriphClkInitStruct.Lptim345ClockSelection = RCC_LPTIM345CLKSOURCE_D3PCLK1;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
       Error_Handler();
     }
 
     /* Peripheral clock enable */
-    __HAL_RCC_LPTIM1_CLK_ENABLE();
-    /* LPTIM1 interrupt Init */
-    HAL_NVIC_SetPriority(LPTIM1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(LPTIM1_IRQn);
-    /* USER CODE BEGIN LPTIM1_MspInit 1 */
+    __HAL_RCC_LPTIM3_CLK_ENABLE();
 
-    /* USER CODE END LPTIM1_MspInit 1 */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**LPTIM3 GPIO Configuration
+    PA1     ------> LPTIM3_OUT
+    */
+    GPIO_InitStruct.Pin = ETR_SPIDMA_SYNC_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF3_LPTIM3;
+    HAL_GPIO_Init(ETR_SPIDMA_SYNC_GPIO_Port, &GPIO_InitStruct);
+
+    /* LPTIM3 interrupt Init */
+    HAL_NVIC_SetPriority(LPTIM3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(LPTIM3_IRQn);
+    /* USER CODE BEGIN LPTIM3_MspInit 1 */
+
+    /* USER CODE END LPTIM3_MspInit 1 */
 
   }
 
@@ -293,19 +306,24 @@ void HAL_LPTIM_MspInit(LPTIM_HandleTypeDef* hlptim)
   */
 void HAL_LPTIM_MspDeInit(LPTIM_HandleTypeDef* hlptim)
 {
-  if(hlptim->Instance==LPTIM1)
+  if(hlptim->Instance==LPTIM3)
   {
-    /* USER CODE BEGIN LPTIM1_MspDeInit 0 */
+    /* USER CODE BEGIN LPTIM3_MspDeInit 0 */
 
-    /* USER CODE END LPTIM1_MspDeInit 0 */
+    /* USER CODE END LPTIM3_MspDeInit 0 */
     /* Peripheral clock disable */
-    __HAL_RCC_LPTIM1_CLK_DISABLE();
+    __HAL_RCC_LPTIM3_CLK_DISABLE();
 
-    /* LPTIM1 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(LPTIM1_IRQn);
-    /* USER CODE BEGIN LPTIM1_MspDeInit 1 */
+    /**LPTIM3 GPIO Configuration
+    PA1     ------> LPTIM3_OUT
+    */
+    HAL_GPIO_DeInit(ETR_SPIDMA_SYNC_GPIO_Port, ETR_SPIDMA_SYNC_Pin);
 
-    /* USER CODE END LPTIM1_MspDeInit 1 */
+    /* LPTIM3 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(LPTIM3_IRQn);
+    /* USER CODE BEGIN LPTIM3_MspDeInit 1 */
+
+    /* USER CODE END LPTIM3_MspDeInit 1 */
   }
 
 }
@@ -596,12 +614,11 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
       Error_Handler();
     }
 
-    pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM1_OUT;
+    pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM3_OUT;
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
-      pSyncConfig.EventEnable = DISABLE;
-      /* One realtime transaction is at most CFTW: 5 four-bit DMA requests. */
-      pSyncConfig.RequestNumber = 5;
+    pSyncConfig.EventEnable = DISABLE;
+    pSyncConfig.RequestNumber = 5;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi1_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -664,12 +681,11 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
       Error_Handler();
     }
 
-    pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM1_OUT;
+    pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM3_OUT;
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
-      pSyncConfig.EventEnable = DISABLE;
-      /* Match SPI1: each LPTIM sync may release one 5-unit DMA frame. */
-      pSyncConfig.RequestNumber = 5;
+    pSyncConfig.EventEnable = DISABLE;
+    pSyncConfig.RequestNumber = 5;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi3_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -761,18 +777,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(htim_base->Instance==TIM2)
-  {
-    /* USER CODE BEGIN TIM2_MspInit 0 */
-
-    /* USER CODE END TIM2_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_TIM2_CLK_ENABLE();
-    /* USER CODE BEGIN TIM2_MspInit 1 */
-
-    /* USER CODE END TIM2_MspInit 1 */
-  }
-  else if(htim_base->Instance==TIM4)
+  if(htim_base->Instance==TIM4)
   {
     /* USER CODE BEGIN TIM4_MspInit 0 */
 
@@ -801,9 +806,6 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM4;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-    /* TIM4 interrupt Init */
-    HAL_NVIC_SetPriority(TIM4_IRQn, 15, 0);
-    HAL_NVIC_EnableIRQ(TIM4_IRQn);
     /* USER CODE BEGIN TIM4_MspInit 1 */
 
     /* USER CODE END TIM4_MspInit 1 */
@@ -815,6 +817,18 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /* USER CODE END TIM8_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_TIM8_CLK_ENABLE();
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**TIM8 GPIO Configuration
+    PA0     ------> TIM8_ETR
+    */
+    GPIO_InitStruct.Pin = SYNC_LPTIM3_TO_TIM8_ETR_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF3_TIM8;
+    HAL_GPIO_Init(SYNC_LPTIM3_TO_TIM8_ETR_GPIO_Port, &GPIO_InitStruct);
+
     /* USER CODE BEGIN TIM8_MspInit 1 */
 
     /* USER CODE END TIM8_MspInit 1 */
@@ -836,32 +850,11 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(htim->Instance==TIM2)
-  {
-    /* USER CODE BEGIN TIM2_MspPostInit 0 */
-
-    /* USER CODE END TIM2_MspPostInit 0 */
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**TIM2 GPIO Configuration
-    PA0     ------> TIM2_CH1
-    */
-    GPIO_InitStruct.Pin = SPI_9959_DMA_TRIG_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
-    HAL_GPIO_Init(SPI_9959_DMA_TRIG_GPIO_Port, &GPIO_InitStruct);
-
-    /* USER CODE BEGIN TIM2_MspPostInit 1 */
-
-    /* USER CODE END TIM2_MspPostInit 1 */
-  }
-  else if(htim->Instance==TIM8)
+  if(htim->Instance==TIM8)
   {
     /* USER CODE BEGIN TIM8_MspPostInit 0 */
 
     /* USER CODE END TIM8_MspPostInit 0 */
-
     __HAL_RCC_GPIOC_CLK_ENABLE();
     /**TIM8 GPIO Configuration
     PC6     ------> TIM8_CH1
@@ -909,18 +902,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
   */
 void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
 {
-  if(htim_base->Instance==TIM2)
-  {
-    /* USER CODE BEGIN TIM2_MspDeInit 0 */
-
-    /* USER CODE END TIM2_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_TIM2_CLK_DISABLE();
-    /* USER CODE BEGIN TIM2_MspDeInit 1 */
-
-    /* USER CODE END TIM2_MspDeInit 1 */
-  }
-  else if(htim_base->Instance==TIM4)
+  if(htim_base->Instance==TIM4)
   {
     /* USER CODE BEGIN TIM4_MspDeInit 0 */
 
@@ -937,8 +919,6 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
 
     HAL_GPIO_DeInit(GPIOE, GPIO_PIN_0);
 
-    /* TIM4 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(TIM4_IRQn);
     /* USER CODE BEGIN TIM4_MspDeInit 1 */
 
     /* USER CODE END TIM4_MspDeInit 1 */
@@ -950,6 +930,16 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     /* USER CODE END TIM8_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_TIM8_CLK_DISABLE();
+
+    /**TIM8 GPIO Configuration
+    PA0     ------> TIM8_ETR
+    PC6     ------> TIM8_CH1
+    PC7     ------> TIM8_CH2
+    */
+    HAL_GPIO_DeInit(SYNC_LPTIM3_TO_TIM8_ETR_GPIO_Port, SYNC_LPTIM3_TO_TIM8_ETR_Pin);
+
+    HAL_GPIO_DeInit(GPIOC, SYNC_9959_IO_UPDATE_Pin|SPI_9959_DIO3_Pin);
+
     /* USER CODE BEGIN TIM8_MspDeInit 1 */
 
     /* USER CODE END TIM8_MspDeInit 1 */

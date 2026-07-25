@@ -262,10 +262,10 @@ static void AD9959_ConfigureDirectIdlePins(void)
     gpio.Pin = SPI_9959_DIO3_Pin | GPIO_PIN_10;
     HAL_GPIO_Init(GPIOC, &gpio);
 
-    HAL_GPIO_WritePin(SPI_9959_DMA_TRIG_GPIO_Port, SPI_9959_DMA_TRIG_Pin,
+    HAL_GPIO_WritePin(SPI_9959_IO2_R_GPIO_Port, SPI_9959_IO2_R_Pin,
                       GPIO_PIN_RESET);
-    gpio.Pin = SPI_9959_DMA_TRIG_Pin;
-    HAL_GPIO_Init(SPI_9959_DMA_TRIG_GPIO_Port, &gpio);
+    gpio.Pin = SPI_9959_IO2_R_Pin;
+    HAL_GPIO_Init(SPI_9959_IO2_R_GPIO_Port, &gpio);
 
     gpio.Mode = GPIO_MODE_INPUT;
     gpio.Speed = GPIO_SPEED_FREQ_LOW;
@@ -311,10 +311,10 @@ static void AD9959_OfficialIOUpdate(void)
 {
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_RESET);
-    DWT_Delay(4.0e-6f);   /* Official capture: CS rising to IO_UPDATE rising ≈3.8 us. */
+    //DWT_Delay(4.0e-6f);   /* Official capture: CS rising to IO_UPDATE rising ≈3.8 us. */
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_SET);
-    DWT_Delay(6.4e-6f);
+    //DWT_Delay(6.4e-6f);
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_RESET);
 }

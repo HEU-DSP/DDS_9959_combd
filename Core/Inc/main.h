@@ -59,7 +59,6 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SPIDMA htim2
 #define OCR_STCP_Pin GPIO_PIN_2
 #define OCR_STCP_GPIO_Port GPIOE
 #define OCR_DS_Pin GPIO_PIN_3
@@ -70,8 +69,10 @@ void Error_Handler(void);
 #define OCR_NMR_GPIO_Port GPIOE
 #define OCR_NOE_Pin GPIO_PIN_6
 #define OCR_NOE_GPIO_Port GPIOE
-#define SPI_9959_DMA_TRIG_Pin GPIO_PIN_0
-#define SPI_9959_DMA_TRIG_GPIO_Port GPIOA
+#define SYNC_LPTIM3_TO_TIM8_ETR_Pin GPIO_PIN_0
+#define SYNC_LPTIM3_TO_TIM8_ETR_GPIO_Port GPIOA
+#define ETR_SPIDMA_SYNC_Pin GPIO_PIN_1
+#define ETR_SPIDMA_SYNC_GPIO_Port GPIOA
 #define ANALOG_EXT_O1_Pin GPIO_PIN_4
 #define ANALOG_EXT_O1_GPIO_Port GPIOC
 #define ANALOG_EXT_1_Pin GPIO_PIN_0
