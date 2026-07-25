@@ -102,17 +102,17 @@ void BSP_TIM15_Start(void);
  * @param  period  : ARR value (LPTIM1 clock = 4 MHz after /32 prescaler)
  * @note   Period match generates LPTIM1_OUT → DMAMUX sync gate open
  */
-void BSP_LPTIM1_SetPeriod(uint16_t period);
+void BSP_LPTIM3_SetPeriod(uint16_t period);
 
 /**
  * @brief  Start LPTIM1 free-running counter with given period
  * @param  period  : if 0, use previously set value
  */
-void BSP_LPTIM1_Start(uint16_t period);
+void BSP_LPTIM3_Start(uint16_t period);
 
 /**
  * @brief  Stop LPTIM1 counter
  */
-void BSP_LPTIM1_Stop(void);
+void BSP_LPTIM3_Stop(void);
 
 #endif /* __BSP_TIM_H__ */
