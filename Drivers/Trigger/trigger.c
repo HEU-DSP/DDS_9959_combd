@@ -1,14 +1,7 @@
 /**
  ******************************************************************************
  * @file    trigger.c
- * @brief   LPTIM1→DMA→SPI→TIM8 Trigger Chain Implementation
- *
- * CubeMX hardware config:
- *   LPTIM1: /8 prescaler → 16 MHz, OUT signal → DMAMUX Sync for SPI DMA
- *   TIM2:   SlaveMode=RESET on ETRF (COMP1 remap), TRGO=Update → ITR1→TIM8
- *   TIM4:   SlaveMode=RESET on ETRF (PE0 ← PA0 wire), CH1/CH2 = IC
- *   TIM8:   SlaveMode=RESET on ITR1 (TIM2), CH1/CH2 = OC Timing
- *   DMA:    SPI1_TX (Stream2) + SPI3_TX (Stream1), Sync=LPTIM1_OUT, Normal
+ * @brief   LPTIM1 -> DMAMUX -> SPI DMA -> TIM8 trigger chain.
  ******************************************************************************
  */
 
@@ -16,109 +9,87 @@
 #include "bsp_tim.h"
 #include "bsp_spi.h"
 #include "tx_buffer.h"
+#include "phase1_config.h"
+#include "debug_state.h"
 #include <string.h>
 
 static Trigger_Config trig_cfg;
-
-/* ================================================================
- * Init
- * ================================================================ */
 
 void Trigger_Init(const Trigger_Config *cfg)
 {
     memcpy((void *)&trig_cfg, cfg, sizeof(Trigger_Config));
 
-    /* tx_active is the single source of truth for ping-pong ownership:
-     * DMA reads TxBuf_GetActive(), CPU fills TxBuf_GetIdle(). */
     tx_active = 0;
 
-    /* 1. TIM2 PWM frequency (ARR/CCR1 only, slave config in MX_TIM2_Init) */
     BSP_TIM2_SetFreq(cfg->sample_rate);
 
-    /* 2. LPTIM1 period: 16 MHz / sample_rate - 1 */
     uint16_t lptim_period = (16000000UL / cfg->sample_rate) - 1;
     BSP_LPTIM1_SetPeriod(lptim_period);
 
-    /* 3. TIM8 OC delays */
     BSP_TIM8_SetDelay(TIM_CHANNEL_1, cfg->ch1_delay);
     BSP_TIM8_SetDelay(TIM_CHANNEL_2, cfg->ch2_delay);
+    ad9959_diag.tim8_ccr1 = TIM8->CCR1;
+    ad9959_diag.tim8_ccr2 = TIM8->CCR2;
 
-    /* 4. TIM4 capture enabled */
+#if AD9959_TIM4_CALIBRATION_ENABLE
     BSP_TIM4_Start();
-
-    /* 5. TIM8 OC enabled */
+#endif
     BSP_TIM8_Start();
-
 }
-
-/* ================================================================
- * Start
- * ================================================================ */
 
 void Trigger_Start(void)
 {
-    /* Phase-align LPTIM1 and TIM2: both counters → 0 */
+    ad9959_diag.dma_frame_bytes = trig_cfg.bank_size;
     __disable_irq();
     LPTIM1->CNT = 0;
     TIM2->CNT   = 0;
     __enable_irq();
 
-    /* Start both timers simultaneously */
-    BSP_LPTIM1_Start(0);   /* use previously set period */
-    BSP_TIM2_Start();      /* PWM on CH1 */
-
-    /* ARM DMA channels — both wait for LPTIM1_OUT sync */
     BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, trig_cfg.spi3_ping,
                            trig_cfg.bank_size);
-}
 
-/* ================================================================
- * Stop
- * ================================================================ */
+    BSP_LPTIM1_Start(0);
+    BSP_TIM2_Start();
+}
 
 void Trigger_Stop(void)
 {
     BSP_LPTIM1_Stop();
     BSP_TIM2_Stop();
     BSP_TIM8_Stop();
+#if AD9959_TIM4_CALIBRATION_ENABLE
     BSP_TIM4_Stop();
-    BSP_SPI_Both_Abort();
+#endif
+    BSP_SPI_Both_Abort_IT();
 }
 
 void Trigger_Restart(void)
 {
-    /* Reset phase alignment and re-start without full re-init */
     __disable_irq();
     LPTIM1->CNT = 0;
     TIM2->CNT   = 0;
     __enable_irq();
 
+    FrameBank *active = TxBuf_GetActive();
+    ad9959_diag.dma_frame_bytes = tx_bank_bytes;
+    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
+
+#if AD9959_TIM4_CALIBRATION_ENABLE
+    BSP_TIM4_Start();
+#endif
+    BSP_TIM8_Start();
     BSP_LPTIM1_Start(0);
     BSP_TIM2_Start();
-    BSP_TIM4_Start();
-    BSP_TIM8_Start();
-
-    FrameBank *active = TxBuf_GetActive();
-    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
 }
-
-/* ================================================================
- * Buffer Swap (DMA TC ISR → this function)
- * ================================================================ */
 
 void Trigger_SwapBuffer(void)
 {
     TxBuf_Swap();
     FrameBank *active = TxBuf_GetActive();
+    ad9959_diag.dma_frame_bytes = tx_bank_bytes;
 
-    /* Re-arm DMA with the just-promoted bank. tx_bank_bytes may change after
-     * App/Middleware refills the opposite bank, so use the live length. */
     BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
 }
-
-/* ================================================================
- * Capture Readback
- * ================================================================ */
 
 void Trigger_GetCaptureTiming(uint32_t *t_cs_start, uint32_t *t_cs_end)
 {

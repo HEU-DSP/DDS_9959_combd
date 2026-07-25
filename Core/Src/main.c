@@ -26,6 +26,7 @@
 #include "trigger.h"
 #include "bsp_dma.h"
 #include "bsp_spi.h"
+#include "bsp_dwt.h"
 #include "debug_state.h"
 #include "tx_buffer.h"
 #include "phase1_config.h"
@@ -76,11 +77,13 @@ TIM_HandleTypeDef htim15;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart10;
 
 /* USER CODE BEGIN PV */
 DebugState ds = {0};
+volatile AD9959_Diag ad9959_diag = {0};
 static volatile bool tx_running = true;
+static volatile bool tx_stop_pending = false;
+static volatile bool tx_error_pending = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -102,7 +105,6 @@ static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_OPAMP1_Init(void);
 static void MX_OPAMP2_Init(void);
-static void MX_USART10_UART_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_LPTIM1_Init(void);
 /* USER CODE BEGIN PFP */
@@ -115,6 +117,19 @@ static void MX_LPTIM1_Init(void);
 /* DMA Complete Callback — both SPI1 and SPI3 done */
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
+#if AD9959_CYCLIC_FTW_DMA_TEST
+    if (hspi->Instance == SPI1) {
+        AD9959_CyclicFTW_OnSpiTxComplete();
+        return;
+    }
+#endif
+    if (hspi->Instance == SPI1) {
+        ad9959_diag.spi1_done_count++;
+        ad9959_diag.spi1_error = HAL_SPI_GetError(hspi);
+    } else if (hspi->Instance == SPI3) {
+        ad9959_diag.spi3_done_count++;
+        ad9959_diag.spi3_error = HAL_SPI_GetError(hspi);
+    }
     static int done_count = 0;
     done_count++;
     if (done_count >= 2) {
@@ -132,10 +147,13 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
         FrameBank *idle = TxBuf_GetIdle();
         if (Encoder_BuildBank(idle, &tx_bank_bytes)) {
             ds.frame_count++;
+            ad9959_diag.frame_count = ds.frame_count;
         } else {
             /* App 未提交新配置 → 暂停发射 */
-            Trigger_Stop();
+            tx_stop_pending = true;
             tx_running = false;
+            ad9959_diag.tx_running = 0U;
+            ad9959_diag.tx_stop_pending = 1U;
         }
     }
 }
@@ -143,12 +161,29 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 /* DMA Error Callback */
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
+#if AD9959_CYCLIC_FTW_DMA_TEST
+    if (hspi->Instance == SPI1) {
+        AD9959_CyclicFTW_OnSpiError();
+        return;
+    }
+#endif
+    if (hspi->Instance == SPI1) {
+        ad9959_diag.spi1_error = HAL_SPI_GetError(hspi);
+        ad9959_diag.spi1_dma_error = HAL_DMA_GetError(hspi->hdmatx);
+    } else if (hspi->Instance == SPI3) {
+        ad9959_diag.spi3_error = HAL_SPI_GetError(hspi);
+        ad9959_diag.spi3_dma_error = HAL_DMA_GetError(hspi->hdmatx);
+    }
+    ad9959_diag.dma1_lisr = DMA1->LISR;
+    ad9959_diag.dma1_hisr = DMA1->HISR;
+    ad9959_diag.dmamux1_csr = DMAMUX1_ChannelStatus->CSR;
     ds.dma_error_count++;
-    BSP_SPI_Abort(hspi->Instance);
 
-    /* Re-arm both DMA channels with current active bank data */
-    FrameBank *active = TxBuf_GetActive();
-    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
+    tx_error_pending = true;
+    tx_stop_pending = true;
+    tx_running = false;
+    ad9959_diag.tx_running = 0U;
+    ad9959_diag.tx_stop_pending = 1U;
 }
 
 /* USER CODE END 0 */
@@ -183,6 +218,7 @@ int main(void)
   PeriphCommonClock_Config();
 
   /* USER CODE BEGIN SysInit */
+  DWT_Init(540U);
 
   /* USER CODE END SysInit */
 
@@ -202,7 +238,6 @@ int main(void)
   MX_USART1_UART_Init();
   MX_OPAMP1_Init();
   MX_OPAMP2_Init();
-  MX_USART10_UART_Init();
   MX_OCTOSPI1_Init();
   MX_LPTIM1_Init();
   /* USER CODE BEGIN 2 */
@@ -212,14 +247,42 @@ int main(void)
   tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
   TxTiming_Update();
 
-  /* ---- App: configure CH0 as CW 10 MHz ---- */
-  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
+  /* ---- CH1 CW: CH0 is known faulty and the other channels stay inactive. */
+  ModCfg_Disable(0);
+  ModCfg_Disable(1);
+  ModCfg_Disable(2);
+  ModCfg_Disable(3);
+  ModCfg_SetCW(1, FTW_100P3MHZ, 0x3FF);
   SymbolBuf_Clear();
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
+#if HC595_OUTPUT_SELFTEST
+  /* Both 595s: Q0 low, Q1..Q7 high. Hold this state for probing. */
+  HC595_Write(HC595_OUTPUT_SELFTEST_WORD);
+  HC595_OutputEnable(true);
+  while (1)
+  {
+  }
+#endif
+#if AD9959_SPI_WAVEFORM_TEST
+  AD9959_DebugSpiWaveformTest();
+#else
   AD9959_Init();
+  /* Validated official CH1 test sequence. */
+  AD9959_SetCWOfficialChannel(1, FTW_100P3MHZ, 0x3FF);
+#if !AD9959_DIRECT_CW_TEST
+  if (!AD9959_Enable2BitSerial(1))
+  {
+    Error_Handler();
+  }
+#endif
+#if AD9959_CYCLIC_FTW_DMA_TEST
+  AD9959_CyclicFTW_Start(FTW_10MHZ, AD9959_CYCLIC_FTW_PERIOD_MS);
+#endif
+#endif
 
+#if !AD9959_DIRECT_CW_TEST
   /* ---- Prime first frame ---- */
   Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes);
   memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
@@ -238,66 +301,52 @@ int main(void)
   };
   Trigger_Init(&trig_cfg);
   Trigger_Start();
+  ad9959_diag.tx_running = 1U;
+  ad9959_diag.tx_stop_pending = 0U;
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+#if !AD9959_DIRECT_CW_TEST
   uint32_t last_tick = HAL_GetTick();
+#endif
   while (1)
   {
+#if AD9959_CYCLIC_FTW_DMA_TEST
+    AD9959_CyclicFTW_Task();
+#endif
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+#if !AD9959_DIRECT_CW_TEST
       uint32_t now = HAL_GetTick();
+      if (tx_stop_pending) {
+          __disable_irq();
+          tx_stop_pending = false;
+          ad9959_diag.tx_stop_pending = 0U;
+          __enable_irq();
+          Trigger_Stop();
+      }
+
       if (now - last_tick >= 100) {
           last_tick = now;
 
-          if (SymbolBuf_IsFree()) {
-              static int test_pattern = 0;
-              test_pattern = (test_pattern + 1) % 3;
-              switch (test_pattern) {
-              case 0:
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetCW(0, FTW_10MHZ, 0x3FF);
-                  SymbolBuf_Clear();
-                  break;
-              case 1:
-              {
-                  static const uint8_t fsk_bits[] = {1, 0, 1, 0, 1, 1, 0, 0};
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetFSK(0, FTW_11MHZ, FTW_10MHZ, 0x3FF);
-                  SymbolBuf_WriteBits(fsk_bits, sizeof(fsk_bits));
-                  break;
-              }
-              case 2:
-              {
-                  static const uint8_t ask_bits[] = {1, 0, 1, 0, 1, 0, 0, 1};
-                  ModCfg_Disable(0);
-                  ModCfg_Disable(1);
-                  ModCfg_Disable(2);
-                  ModCfg_Disable(3);
-                  ModCfg_SetASK(0, FTW_10MHZ, 0x3FF, 0x000);
-                  SymbolBuf_WriteBits(ask_bits, sizeof(ask_bits));
-                  break;
-              }
-              }
-          }
-          if (!tx_running) {
+          ModCfg_SetCW(1, FTW_100P3MHZ, 0x3FF);
+          SymbolBuf_Clear();
+
+          if (!tx_running && AD9959_DMA_AUTO_RESTART) {
               if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
                   memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
                   memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
                   tx_active = 0;
                   Trigger_Restart();
                   tx_running = true;
+                  ad9959_diag.tx_running = 1U;
               }
           }
       }
+#endif
   }
   /* USER CODE END 3 */
 }
@@ -328,12 +377,12 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 2;
-  RCC_OscInitStruct.PLL.PLLN = 32;
+  RCC_OscInitStruct.PLL.PLLM = 3;
+  RCC_OscInitStruct.PLL.PLLN = 135;
   RCC_OscInitStruct.PLL.PLLP = 1;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
-  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
   RCC_OscInitStruct.PLL.PLLFRACN = 0;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -376,26 +425,17 @@ void PeriphCommonClock_Config(void)
   */
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_OSPI|RCC_PERIPHCLK_SPI3
                               |RCC_PERIPHCLK_SPI1|RCC_PERIPHCLK_FDCAN
-                              |RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART10
-                              |RCC_PERIPHCLK_UART4;
-  PeriphClkInitStruct.PLL2.PLL2M = 8;
-  PeriphClkInitStruct.PLL2.PLL2N = 160;
+                              |RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_UART4;
+  PeriphClkInitStruct.PLL2.PLL2M = 3;
+  PeriphClkInitStruct.PLL2.PLL2N = 125;
   PeriphClkInitStruct.PLL2.PLL2P = 2;
   PeriphClkInitStruct.PLL2.PLL2Q = 5;
   PeriphClkInitStruct.PLL2.PLL2R = 2;
   PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_2;
   PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
   PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
-  PeriphClkInitStruct.PLL3.PLL3M = 8;
-  PeriphClkInitStruct.PLL3.PLL3N = 125;
-  PeriphClkInitStruct.PLL3.PLL3P = 2;
-  PeriphClkInitStruct.PLL3.PLL3Q = 2;
-  PeriphClkInitStruct.PLL3.PLL3R = 2;
-  PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
-  PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
-  PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
   PeriphClkInitStruct.OspiClockSelection = RCC_OSPICLKSOURCE_PLL2;
-  PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_PLL3;
+  PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_PLL2;
   PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL2;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_PLL2;
   PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16910CLKSOURCE_PLL2;
@@ -678,11 +718,13 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  /* Official initialization is one-bit serial: one SPI data unit is one
+   * complete AD9959 byte until CSR=0x24 has been written. */
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -726,11 +768,11 @@ static void MX_SPI3_Init(void)
   hspi3.Instance = SPI3;
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -882,7 +924,7 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
   sConfigIC.ICFilter = 8;
@@ -890,6 +932,10 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
+  /* PA15 (SPI1_NSS) is wired to both TIM4 capture inputs:
+   * CH1 records CS falling (transaction start), CH2 CS rising (end). */
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICFilter = 0;
   if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
   {
@@ -1039,7 +1085,7 @@ static void MX_TIM15_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 99;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -1165,54 +1211,6 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
-  * @brief USART10 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART10_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART10_Init 0 */
-
-  /* USER CODE END USART10_Init 0 */
-
-  /* USER CODE BEGIN USART10_Init 1 */
-
-  /* USER CODE END USART10_Init 1 */
-  huart10.Instance = USART10;
-  huart10.Init.BaudRate = 115200;
-  huart10.Init.WordLength = UART_WORDLENGTH_8B;
-  huart10.Init.StopBits = UART_STOPBITS_1;
-  huart10.Init.Parity = UART_PARITY_NONE;
-  huart10.Init.Mode = UART_MODE_TX_RX;
-  huart10.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart10.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart10.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart10.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart10.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_HalfDuplex_Init(&huart10) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart10, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart10, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart10) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART10_Init 2 */
-
-  /* USER CODE END USART10_Init 2 */
-
-}
-
-/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -1255,23 +1253,26 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, OCR_STCP_Pin|OCR_SHCP_Pin|OCR_NMR_Pin|OCR_NOE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, OCR_STCP_Pin|OCR_DS_Pin|OCR_SHCP_Pin|OCR_NMR_Pin
+                          |OCR_NOE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, IO_9959_1_Pin|IO_9959_0_Pin|IO_9959_DIO2_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : OCR_STCP_Pin OCR_SHCP_Pin OCR_NMR_Pin OCR_NOE_Pin */
-  GPIO_InitStruct.Pin = OCR_STCP_Pin|OCR_SHCP_Pin|OCR_NMR_Pin|OCR_NOE_Pin;
+  /*Configure GPIO pins : OCR_STCP_Pin OCR_DS_Pin OCR_SHCP_Pin OCR_NMR_Pin
+                           OCR_NOE_Pin */
+  GPIO_InitStruct.Pin = OCR_STCP_Pin|OCR_DS_Pin|OCR_SHCP_Pin|OCR_NMR_Pin
+                          |OCR_NOE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : IO_9959_1_Pin IO_9959_0_Pin IO_9959_DIO2_Pin */
-  GPIO_InitStruct.Pin = IO_9959_1_Pin|IO_9959_0_Pin|IO_9959_DIO2_Pin;
+  /*Configure GPIO pins : IO_9959_1_Pin IO_9959_0_Pin */
+  GPIO_InitStruct.Pin = IO_9959_1_Pin|IO_9959_0_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SPI_9959_DIO3_BP_Pin */
@@ -1280,10 +1281,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SPI_9959_DIO3_BP_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : IO_9959_DIO2_Pin */
+  GPIO_InitStruct.Pin = IO_9959_DIO2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(IO_9959_DIO2_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : SYNC_9959_IO_UPDATE_BP_Pin */
   GPIO_InitStruct.Pin = SYNC_9959_IO_UPDATE_BP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(SYNC_9959_IO_UPDATE_BP_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */

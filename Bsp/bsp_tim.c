@@ -53,14 +53,16 @@ void BSP_TIM2_Stop(void)
 
 void BSP_TIM4_Start(void)
 {
-    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_1);
-    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_2);
+    /* Start capture interrupts as well as the counter.  The timing values
+     * used by Trigger_GetCaptureTiming() are updated in the HAL callback. */
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_2);
 }
 
 void BSP_TIM4_Stop(void)
 {
-    HAL_TIM_IC_Stop(&htim4, TIM_CHANNEL_1);
-    HAL_TIM_IC_Stop(&htim4, TIM_CHANNEL_2);
+    HAL_TIM_IC_Stop_IT(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_IC_Stop_IT(&htim4, TIM_CHANNEL_2);
 }
 
 void BSP_TIM4_GetCaptures(uint32_t *cs_start, uint32_t *cs_end)
@@ -80,14 +82,33 @@ void BSP_TIM8_SetDelay(uint8_t channel, uint16_t delay_ticks)
 
 void BSP_TIM8_Start(void)
 {
-    HAL_TIM_OC_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_OC_Start(&htim8, TIM_CHANNEL_2);
+    /* Configure the continuous DMA synchronisation chain. Direct one-bit
+     * bring-up does not use TIM8 and leaves this state untouched. */
+    TIM8->CR1 &= ~(TIM_CR1_CEN | TIM_CR1_OPM);
+    TIM8->SMCR = TIM_SLAVEMODE_RESET | TIM_TS_ITR1;
+    TIM8->PSC = 0U;
+    TIM8->ARR = 0xFFFFU;
+    TIM8->CNT = 0U;
+    TIM8->EGR = TIM_EGR_UG;
+    TIM8->SR = 0U;
+    TIM8->BDTR |= TIM_BDTR_MOE;
+
+    /* Buffered/DMA mode uses PWM2: low after a TIM2 reset, then rising at
+     * the calibrated CCR1 delay. */
+    TIM8->CCMR1 &= ~(TIM_CCMR1_OC1M | TIM_CCMR1_OC1M_3);
+    TIM8->CCMR1 |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_0;
+
+    /* PWM2: each TIM2 update resets CNT and drives the pins low; CH1/CH2
+     * rise at their calibrated CCR values.  The following reset is the
+     * falling edge for the preceding synchronous pulse. */
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 }
 
 void BSP_TIM8_Stop(void)
 {
-    HAL_TIM_OC_Stop(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_OC_Stop(&htim8, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
 }
 
 /* ================================================================
@@ -96,10 +117,13 @@ void BSP_TIM8_Stop(void)
 
 void BSP_TIM15_SetREFCLK(uint32_t freq_hz)
 {
-    uint32_t arr = (256000000UL / freq_hz) - 1;
-    if (arr < 2) arr = 2;
+    /* Round to the nearest integer divider. For a 25 MHz request this
+     * selects /11, so TIM15 CH1 is 270 / 11 = 24.545 MHz (ARR = 10). */
+    uint32_t divider = (270000000UL + (freq_hz / 2UL)) / freq_hz;
+    if (divider < 2UL) divider = 2UL;
+    uint32_t arr = divider - 1UL;
     __HAL_TIM_SET_AUTORELOAD(&htim15, arr);
-    __HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, arr / 2);
+    __HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, (arr + 1UL) / 2UL);
 }
 
 void BSP_TIM15_Start(void)

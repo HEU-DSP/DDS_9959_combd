@@ -557,21 +557,21 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     */
     GPIO_InitStruct.Pin = SPI_9959_CS_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
     HAL_GPIO_Init(SPI_9959_CS_GPIO_Port, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = SPI_9959_DIO0_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
     HAL_GPIO_Init(SPI_9959_DIO0_GPIO_Port, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = SPI_9959_SCLK_Pin|SPI_9959_IO2_R_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -599,8 +599,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM1_OUT;
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
-    pSyncConfig.EventEnable = ENABLE;
-    pSyncConfig.RequestNumber = 16;
+      pSyncConfig.EventEnable = DISABLE;
+      /* One realtime transaction is at most CFTW: 5 four-bit DMA requests. */
+      pSyncConfig.RequestNumber = 5;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi1_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -631,14 +632,14 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     */
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = SPI_9959_DIO1_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI3;
     HAL_GPIO_Init(SPI_9959_DIO1_GPIO_Port, &GPIO_InitStruct);
@@ -666,8 +667,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncSignalID = HAL_DMAMUX1_SYNC_LPTIM1_OUT;
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
-    pSyncConfig.EventEnable = ENABLE;
-    pSyncConfig.RequestNumber = 14;
+      pSyncConfig.EventEnable = DISABLE;
+      /* Match SPI1: each LPTIM sync may release one 5-unit DMA frame. */
+      pSyncConfig.RequestNumber = 5;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi3_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -800,7 +802,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     /* TIM4 interrupt Init */
-    HAL_NVIC_SetPriority(TIM4_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(TIM4_IRQn, 15, 0);
     HAL_NVIC_EnableIRQ(TIM4_IRQn);
     /* USER CODE BEGIN TIM4_MspInit 1 */
 
@@ -1023,29 +1025,6 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 
     /* USER CODE END USART1_MspInit 1 */
   }
-  else if(huart->Instance==USART10)
-  {
-    /* USER CODE BEGIN USART10_MspInit 0 */
-
-    /* USER CODE END USART10_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_USART10_CLK_ENABLE();
-
-    __HAL_RCC_GPIOE_CLK_ENABLE();
-    /**USART10 GPIO Configuration
-    PE3     ------> USART10_TX
-    */
-    GPIO_InitStruct.Pin = OCR_DS_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF11_USART10;
-    HAL_GPIO_Init(OCR_DS_GPIO_Port, &GPIO_InitStruct);
-
-    /* USER CODE BEGIN USART10_MspInit 1 */
-
-    /* USER CODE END USART10_MspInit 1 */
-  }
 
 }
 
@@ -1092,23 +1071,6 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     /* USER CODE BEGIN USART1_MspDeInit 1 */
 
     /* USER CODE END USART1_MspDeInit 1 */
-  }
-  else if(huart->Instance==USART10)
-  {
-    /* USER CODE BEGIN USART10_MspDeInit 0 */
-
-    /* USER CODE END USART10_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_USART10_CLK_DISABLE();
-
-    /**USART10 GPIO Configuration
-    PE3     ------> USART10_TX
-    */
-    HAL_GPIO_DeInit(OCR_DS_GPIO_Port, OCR_DS_Pin);
-
-    /* USER CODE BEGIN USART10_MspDeInit 1 */
-
-    /* USER CODE END USART10_MspDeInit 1 */
   }
 
 }

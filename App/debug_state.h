@@ -29,6 +29,40 @@ typedef struct {
     uint32_t dma_error_count;    /* DMA 错误次数 */
 } DebugState;
 
+/* Ozone-only observability for the AD9959 bring-up path.  Recording these
+ * values must never alter the DMA, SPI or timer timing chain. */
+typedef struct {
+    uint32_t init_stage;
+    uint32_t master_reset;
+    uint32_t power_down;
+
+    uint32_t spi1_start_count;
+    uint32_t spi3_start_count;
+    uint32_t spi1_done_count;
+    uint32_t spi3_done_count;
+    uint32_t spi1_error;
+    uint32_t spi3_error;
+    uint32_t spi1_start_status;
+    uint32_t spi3_start_status;
+    uint32_t spi1_hal_state;
+    uint32_t spi3_hal_state;
+    uint32_t spi1_dma_error;
+    uint32_t spi3_dma_error;
+    uint32_t dma1_lisr;
+    uint32_t dma1_hisr;
+    uint32_t dmamux1_csr;
+    uint32_t spi1_buffer_addr;
+    uint32_t spi3_buffer_addr;
+
+    uint32_t dma_frame_bytes;
+    uint32_t frame_count;
+    uint32_t tx_running;
+    uint32_t tx_stop_pending;
+    uint32_t tim8_ccr1;
+    uint32_t tim8_ccr2;
+} AD9959_Diag;
+
 extern DebugState ds;
+extern volatile AD9959_Diag ad9959_diag;
 
 #endif /* __DEBUG_STATE_H__ */

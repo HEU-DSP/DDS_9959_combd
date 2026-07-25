@@ -11,7 +11,7 @@
  *   PE6 → OE           — output enable (active low)
  *
  * Chip 1 (closest to MCU):  7 LED outputs (bits 1-7, bit 0 NC)
- * Chip 2 (cascaded from QH'): 6 DDS control outputs (bits 1-6, bits 0,7 NC)
+ * Chip 2 (cascaded from QH'): 6 DDS control outputs (Q1-Q6; Q0/Q7 NC)
  ******************************************************************************
  */
 
@@ -42,20 +42,32 @@
 #define HC595_CH2_BIT_DDSPWREN_3V3D      5
 #define HC595_CH2_BIT_DDSCLKMODE33       6
 
+/* Logical DDS control state. The board has mixed signal polarities; use
+ * HC595_ApplyDDSControl() instead of manipulating chip-2 bit masks directly. */
+typedef struct {
+    bool enable_1v8_digital;
+    bool enable_1v8_analog;
+    bool master_reset;
+    bool power_down;
+    bool enable_3v3_digital;
+    bool clk_mode_3v3;
+} HC595_DDSControl;
+
+extern HC595_DDSControl hc595_dds_control;
+
 /* ================================================================
  * API
  * ================================================================ */
 
 /**
- * @brief  Initialize 595 control GPIOs and USART10
+ * @brief  Initialize 595 control GPIOs
  */
 void HC595_Init(void);
 
 /**
  * @brief  Write full 16-bit value (chip1[7:0] | chip2[15:8])
  * @param  data : [15:8]=chip2 shift-reg, [7:0]=chip1 shift-reg
- * @note   Data is sent via USART10 half-duplex TX (16-bit frame).
- *         Call HC595_Latch() after to output.
+ * @note   Data is shifted MSB-first via GPIO and automatically latched.
  */
 void HC595_Write(uint16_t data);
 
@@ -75,6 +87,9 @@ void HC595_ClrBit(uint8_t chip, uint8_t bit);
  * @brief  Clear all bits in both chips' shadow registers
  */
 void HC595_ClearAll(void);
+
+/** Apply hc595_dds_control to the second 74HC595 and latch its outputs. */
+void HC595_ApplyDDSControl(void);
 
 /**
  * @brief  Pulse STCP (latch) — transfer shift register to outputs

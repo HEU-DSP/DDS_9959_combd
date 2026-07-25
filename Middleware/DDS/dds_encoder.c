@@ -51,34 +51,32 @@ int Encoder_FormatCommand(const DDS_Command *cmd,
     uint8_t raw[32];
     int idx = 0;
 
-    /* ---- CSR: channel select + 2-bit serial mode ---- */
-    uint8_t csr = CSR_CHANNEL(cmd->profile) | CSR_IO_MODE_2BIT;
-    raw[idx]     = AD9959_REG_CSR & 0x7F;
-    raw[idx + 1] = csr;
-    idx += 2;
-
-    /* ---- CFTW (0x04): 4 bytes ---- */
-    raw[idx]     = AD9959_REG_CFTW & 0x7F;
-    raw[idx + 1] = (cmd->ftw >> 24) & 0xFF;
-    raw[idx + 2] = (cmd->ftw >> 16) & 0xFF;
-    raw[idx + 3] = (cmd->ftw >> 8)  & 0xFF;
-    raw[idx + 4] =  cmd->ftw        & 0xFF;
-    idx += 5;
-
-    /* ---- ACR (0x06): 3 bytes ---- */
-    uint32_t acr = ((uint32_t)(cmd->asf & ACR_ASF_Msk) << ACR_ASF_Pos) |
-                   ACR_AMP_MULT_ENABLE;
-    raw[idx]     = AD9959_REG_ACR & 0x7F;
-    raw[idx + 1] = (acr >> 16) & 0xFF;
-    raw[idx + 2] = (acr >> 8)  & 0xFF;
-    raw[idx + 3] =  acr        & 0xFF;
-    idx += 4;
-
-    /* ---- CPOW (0x05): 2 bytes ---- */
-    raw[idx]     = AD9959_REG_CPOW & 0x7F;
-    raw[idx + 1] = (cmd->pow >> 8) & 0xFF;
-    raw[idx + 2] =  cmd->pow       & 0xFF;
-    idx += 3;
+    switch (cmd->update_kind) {
+    case DDS_UPDATE_FTW:
+        raw[idx++] = AD9959_REG_CFTW & 0x7F;
+        raw[idx++] = (cmd->ftw >> 24) & 0xFF;
+        raw[idx++] = (cmd->ftw >> 16) & 0xFF;
+        raw[idx++] = (cmd->ftw >> 8)  & 0xFF;
+        raw[idx++] =  cmd->ftw        & 0xFF;
+        break;
+    case DDS_UPDATE_ASF:
+    {
+        uint32_t acr = ((uint32_t)(cmd->asf & ACR_ASF_Msk) << ACR_ASF_Pos) |
+                       ACR_AMP_MULT_ENABLE;
+        raw[idx++] = AD9959_REG_ACR & 0x7F;
+        raw[idx++] = (acr >> 16) & 0xFF;
+        raw[idx++] = (acr >> 8)  & 0xFF;
+        raw[idx++] =  acr        & 0xFF;
+        break;
+    }
+    case DDS_UPDATE_POW:
+        raw[idx++] = AD9959_REG_CPOW & 0x7F;
+        raw[idx++] = (cmd->pow >> 8) & 0x3F;
+        raw[idx++] =  cmd->pow       & 0xFF;
+        break;
+    default:
+        return 0;
+    }
 
     /* ---- Bit-interleave into separate SPI1/SPI3 buffers ---- */
     interleave_frames(raw, spi1_frame, spi3_frame, idx);
@@ -89,12 +87,9 @@ int Encoder_FormatCommand(const DDS_Command *cmd,
 int Encoder_FormatCommands(const DDS_Command *cmds, int num_cmds,
                            uint8_t *spi1_frame, uint8_t *spi3_frame)
 {
-    int total = 0;
-    for (int i = 0; i < num_cmds; i++) {
-        int len = Encoder_FormatCommand(&cmds[i],
-                                        spi1_frame + total,
-                                        spi3_frame + total);
-        total += len;
+    /* One DMA transfer gives only one CS-low interval. */
+    if ((cmds == 0) || (num_cmds != 1)) {
+        return 0;
     }
-    return total;
+    return Encoder_FormatCommand(cmds, spi1_frame, spi3_frame);
 }

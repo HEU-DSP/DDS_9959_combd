@@ -11,6 +11,34 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* One-bit serial readback values, retained for inspection in Ozone. */
+typedef struct {
+    volatile uint32_t marker;
+    volatile uint32_t fr1;
+    volatile uint32_t cftw;
+    volatile uint32_t acr;
+    volatile uint8_t csr;
+    volatile uint8_t cfr[3];
+} AD9959_OneBitDebug;
+
+extern AD9959_OneBitDebug ad9959_onebit_debug;
+
+/* Hardware-SPI transaction results, retained for inspection in Ozone. */
+typedef struct {
+    volatile uint32_t marker;
+    volatile uint32_t transaction_count;
+    volatile uint32_t software_spi;
+    volatile uint32_t spi1_error;
+    volatile uint32_t fr1_status;
+    volatile uint32_t csr_status;
+    volatile uint32_t cfr_status;
+    volatile uint32_t cftw_status;
+    volatile uint32_t acr_status;
+    volatile uint32_t cpow_status;
+} AD9959_HardwareSpiDebug;
+
+extern AD9959_HardwareSpiDebug ad9959_hwspi_debug;
+
 /* ================================================================
  * Initialization & Control
  * ================================================================ */
@@ -26,10 +54,30 @@
  */
 void AD9959_Init(void);
 
+/** Configure one channel for continuous sine-wave output during bring-up. */
+void AD9959_SetCWDirect(uint8_t channel, uint32_t ftw, uint16_t asf);
+
+/** Configure all four channels for the same continuous sine-wave output during bring-up. */
+void AD9959_SetCWAllDirect(uint32_t ftw, uint16_t asf);
+void AD9959_SetCWOfficialPerChannel(uint32_t ftw, uint16_t asf);
+void AD9959_SetCWOfficialChannel(uint8_t channel, uint32_t ftw, uint16_t asf);
+
+/** Switch AD9959 CHx from the reset-default single-bit bus to 2-bit serial
+ * mode, then reconfigure SPI1/SPI3 to 4-bit DMA transfers. */
+bool AD9959_Enable2BitSerial(uint8_t channel);
+
+void AD9959_CyclicFTW_Start(uint32_t ftw, uint32_t period_ms);
+void AD9959_CyclicFTW_Task(void);
+void AD9959_CyclicFTW_OnSpiTxComplete(void);
+void AD9959_CyclicFTW_OnSpiError(void);
+
 /**
- * @brief  Trigger IO_UPDATE pulse via TIM8 CH1 hardware
+ * @brief  Trigger one GPIO IO_UPDATE pulse for direct one-bit bring-up.
  */
 void AD9959_IOUpdate(void);
+
+/** Hold DDS reset high and continuously send a known SPI1 waveform. */
+void AD9959_DebugSpiWaveformTest(void);
 
 /**
  * @brief  Assert Master Reset (via 595 DDSMASTERRST bit)

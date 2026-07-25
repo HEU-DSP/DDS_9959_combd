@@ -16,15 +16,46 @@
 /* ================================================================
  * AD9959 System Clock
  * ================================================================ */
-#define AD9959_SYSCLK_HZ   500000000UL   /* 500 MHz (PLL x20, REF=50MHz) */
+#define AD9959_SYSCLK_HZ   490909091UL   /* 24.545 MHz REF_CLK x20 */
+
+/* Bring-up mode: program CH0 CW entirely through the one-bit DIO0 protocol. */
+#define AD9959_DIRECT_CW_TEST  0
+
+/* Transport selector for the direct-CW test:
+ * 0 = validated hardware SPI1 transport (default)
+ * 1 = GPIO bit-banged CS/SCLK/DIO0 at a deliberately slow rate. */
+#define AD9959_SOFTWARE_SPI_TEST  0
+
+/* Reproduce the official module's per-channel write ordering. */
+#define AD9959_OFFICIAL_PER_CHANNEL_TEST  1
+
+/* Hardware-SPI1 DMA CFTW loop test.  Requires AD9959_SOFTWARE_SPI_TEST = 0. */
+#define AD9959_CYCLIC_FTW_DMA_TEST  0
+#define AD9959_CYCLIC_FTW_PERIOD_MS 10U
+
+/* Read CSR/FR1/CFR/CFTW/ACR back through DIO0 after direct-CW setup.
+ * Results are retained in ad9959_onebit_debug for Ozone inspection. */
+#define AD9959_DIRECT_CW_READBACK  0
+
+/* Optional physical-layer test. DDS stays in reset while SPI1 repeatedly
+ * sends 00 AA / 00 55, making SDIO0 straightforward to probe. */
+#define AD9959_SPI_WAVEFORM_TEST  0
+
+/* Hardware-only 74HC595 check: both chips' Q1..Q7 stay high. */
+#define HC595_OUTPUT_SELFTEST  0
+#define HC595_OUTPUT_SELFTEST_WORD  0xFEFEU
 
 /* ================================================================
  * FTW constants (FTW = f_out / SYSCLK * 2^32)
  *   10 MHz →  85899346 (0x051EB852)
  *   11 MHz →  94489280 (0x05A1CAC0)
  * ================================================================ */
-#define FTW_10MHZ  85899346UL
-#define FTW_11MHZ  94489280UL
+#define FTW_10MHZ  87490075UL
+#define FTW_11MHZ  96239082UL
+/* 200 MHz at SYSCLK = 490.909091 MHz: 0x684BDA13. */
+#define FTW_200MHZ 1749801491UL
+/* 100.3 MHz at SYSCLK = 490.909091 MHz: 0x344DF9C8. */
+#define FTW_100P3MHZ 877525448UL
 
 /* ================================================================
  * Phase 1 default baud rate + oversampling (App layer sets these)
@@ -32,10 +63,18 @@
  *   CW/FSK/ASK:  samples_per_sym = 1
  *   GFSK:        samples_per_sym = 4
  * ================================================================ */
-#define P1_BAUD_RATE            100000U   /* 100 kHz symbol rate               */
+#define P1_BAUD_RATE            100000U   /* validated DMA sample rate          */
 #define P1_SAMPLES_PER_SYM      1U        /* No oversampling for CW/FSK/ASK     */
 #define P1_CH1_DELAY            200U      /* TIM8 CH1 initial delay ticks       */
 #define P1_CH2_DELAY            210U      /* TIM8 CH2 initial delay ticks       */
+
+/* TIM4 is a measurement-only CS capture path.  Keep it off unless PA15 is
+ * physically wired to both PB6/PB7 and PA0 is wired to PE0. */
+#define AD9959_TIM4_CALIBRATION_ENABLE  0
+
+/* Keep a DMA fault frozen for Ozone inspection.  Set to 1 only after the
+ * fault cause is understood and automatic recovery is desired. */
+#define AD9959_DMA_AUTO_RESTART  1
 
 /* ================================================================
  * Frame transfer time constraint

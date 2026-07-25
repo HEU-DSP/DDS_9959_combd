@@ -30,6 +30,9 @@ void MSK_GenerateBit(const MSK_Config *cfg, uint8_t bit, DDS_Command *cmd)
     cmd->asf = cfg->asf;
     cmd->pow = phase;
     cmd->profile = cfg->profile;
+    /* MSK frequency and phase require separate transactions. Preserve phase
+     * continuity here; configure the carrier FTW before this stream starts. */
+    cmd->update_kind = DDS_UPDATE_POW;
 }
 
 int MSK_GenerateFrame(const MSK_Config *cfg, uint8_t bit,

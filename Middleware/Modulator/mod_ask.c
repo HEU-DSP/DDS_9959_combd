@@ -14,6 +14,7 @@ void ASK_GenerateBit(const ASK_Config *cfg, uint8_t bit, DDS_Command *cmd)
     cmd->asf     = (bit) ? cfg->asf_on : cfg->asf_off;
     cmd->pow     = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_ASF;
 }
 
 int ASK_Generate(const ASK_Config *cfg,

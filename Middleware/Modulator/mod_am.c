@@ -26,6 +26,7 @@ void AM_GenerateSample(const AM_Config *cfg, int16_t sample, DDS_Command *cmd)
     cmd->asf = clamp_asf((int32_t)cfg->asf_center + delta);
     cmd->pow = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_ASF;
 }
 
 int AM_GenerateFrame(const AM_Config *cfg, int16_t sample,

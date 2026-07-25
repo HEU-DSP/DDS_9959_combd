@@ -14,6 +14,7 @@ void QPSK_GenerateSymbol(const QPSK_Config *cfg, uint8_t symbol,
     cmd->ftw = cfg->ftw;
     cmd->asf = cfg->asf;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_POW;
 
     switch (symbol & 0x03U) {
     case 0x00:

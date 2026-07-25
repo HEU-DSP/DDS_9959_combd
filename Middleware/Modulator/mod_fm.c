@@ -21,6 +21,7 @@ void FM_GenerateSample(const FM_Config *cfg, int16_t sample, DDS_Command *cmd)
     cmd->asf = cfg->asf;
     cmd->pow = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_FTW;
 }
 
 int FM_GenerateFrame(const FM_Config *cfg, int16_t sample,

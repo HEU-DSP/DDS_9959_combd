@@ -82,7 +82,8 @@ void BSP_TIM8_Stop(void);
 /**
  * @brief  Set AD9959 reference clock frequency via TIM15 CH1 PWM
  * @param  freq_hz  : desired REF_CLK frequency (typically 25–50 MHz)
- * @note   TIM15 clock = 256 MHz (APB2 timer clock)
+ * @note   TIM15 clock = 270 MHz, PSC = 0. 25 MHz request produces
+ *         24.545 MHz (ARR = 10), the nearest integer division.
  *         若需要 50 MHz REF_CLK: freq_hz = 50000000
  */
 void BSP_TIM15_SetREFCLK(uint32_t freq_hz);

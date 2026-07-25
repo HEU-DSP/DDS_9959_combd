@@ -15,6 +15,7 @@ void CW_Generate(uint32_t ftw, uint16_t asf, uint8_t profile,
     cmd->asf     = asf;
     cmd->pow     = 0;
     cmd->profile = profile;
+    cmd->update_kind = DDS_UPDATE_FTW;
 }
 
 int CW_GenerateFrame(uint32_t ftw, uint16_t asf, uint8_t profile,

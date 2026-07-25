@@ -8,7 +8,7 @@
 #include "tx_buffer.h"
 
 /* ---- Two-bank frame buffer array ---- */
-FrameBank  tx_bank[TX_BANK_COUNT];
+FrameBank tx_bank[TX_BANK_COUNT] __attribute__((section(".dma_buffer"), aligned(32)));
 
 /* ---- Flow control ---- */
 volatile uint8_t  tx_active    = 0;

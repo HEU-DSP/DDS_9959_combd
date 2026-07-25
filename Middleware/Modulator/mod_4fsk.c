@@ -17,6 +17,7 @@ void FSK4_GenerateSymbol(const FSK4_Config *cfg, uint8_t symbol,
     cmd->asf = cfg->asf;
     cmd->pow = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_FTW;
 }
 
 int FSK4_GenerateFrame(const FSK4_Config *cfg, uint8_t symbol,

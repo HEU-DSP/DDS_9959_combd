@@ -20,6 +20,24 @@
 
 /* Shadow registers for read-modify-write */
 static uint16_t hc595_shadow = 0x0000;
+HC595_DDSControl hc595_dds_control = {0};
+
+static uint16_t HC595_PackDDSControl(uint16_t value)
+{
+    /* U20 Q0 is not connected. The DDS controls are U20 Q1..Q6,
+     * which occupy raw shift-register bits 9..14 in the 16-bit frame. */
+    const uint16_t dds_mask = 0x7E00U;
+    uint16_t dds_bits = 0U;
+
+    if (hc595_dds_control.enable_1v8_digital)  dds_bits |= (1U << 9);
+    if (hc595_dds_control.enable_1v8_analog)   dds_bits |= (1U << 10);
+    if (hc595_dds_control.master_reset)        dds_bits |= (1U << 11);
+    if (hc595_dds_control.power_down)          dds_bits |= (1U << 12);
+    if (hc595_dds_control.enable_3v3_digital)  dds_bits |= (1U << 13);
+    if (hc595_dds_control.clk_mode_3v3)        dds_bits |= (1U << 14);
+
+    return (value & ~dds_mask) | dds_bits;
+}
 
 /* ================================================================
  * Initialization
@@ -27,14 +45,15 @@ static uint16_t hc595_shadow = 0x0000;
 
 void HC595_Init(void)
 {
-    /* GPIOs already initialized by CubeMX MX_GPIO_Init().
-     * USART10 already initialized by CubeMX MX_USART10_UART_Init().
-     * Set default state: MR high (not reset), OE high (outputs disabled) */
+    /* GPIOs are configured by CubeMX as push-pull outputs. */
     BSP_GPIO_595_MR_Set();
     BSP_GPIO_595_OE_Set();
     BSP_GPIO_595_STCP_Clr();
     BSP_GPIO_595_SHCP_Clr();
+    HAL_GPIO_WritePin(OCR_DS_GPIO_Port, OCR_DS_Pin, GPIO_PIN_RESET);
+    HC595_Reset();
     hc595_shadow = 0x0000;
+    hc595_dds_control = (HC595_DDSControl){0};
 }
 
 /* ================================================================
@@ -63,18 +82,23 @@ void HC595_Write(uint16_t data)
      * USART frame order: send chip1 byte first, then chip2 byte.
      * Each byte: MSB first (standard SPI-like shift). */
 
-    uint16_t val = data;
+    uint16_t mask = 0x8000U;
+    BSP_GPIO_595_STCP_Clr();
     for (int i = 0; i < 16; i++) {
         BSP_GPIO_595_SHCP_Clr();
         /* Set DS: bit 15 first (MSB of chip2 = last bit shifted into chip1) */
-        if (val & 0x8000)
+        if (data & mask)
             HAL_GPIO_WritePin(OCR_DS_GPIO_Port, OCR_DS_Pin, GPIO_PIN_SET);
         else
             HAL_GPIO_WritePin(OCR_DS_GPIO_Port, OCR_DS_Pin, GPIO_PIN_RESET);
         BSP_GPIO_595_SHCP_Set();
-        val <<= 1;
+        __NOP(); __NOP(); __NOP(); __NOP(); __NOP();
+        BSP_GPIO_595_SHCP_Clr();
+        __NOP(); __NOP(); __NOP(); __NOP(); __NOP();
+        mask >>= 1U;
     }
 
+    HC595_Latch();
     hc595_shadow = data;
 }
 
@@ -84,7 +108,7 @@ void HC595_SetBit(uint8_t chip, uint8_t bit)
     if (chip == 1) {
         hc595_shadow |=  (1UL << (bit - 1));
     } else if (chip == 2) {
-        hc595_shadow |=  (1UL << (bit + 7));
+        hc595_shadow |=  (1UL << (bit + 8));
     }
     HC595_Write(hc595_shadow);
 }
@@ -95,7 +119,7 @@ void HC595_ClrBit(uint8_t chip, uint8_t bit)
     if (chip == 1) {
         hc595_shadow &= ~(1UL << (bit - 1));
     } else if (chip == 2) {
-        hc595_shadow &= ~(1UL << (bit + 7));
+        hc595_shadow &= ~(1UL << (bit + 8));
     }
     HC595_Write(hc595_shadow);
 }
@@ -106,6 +130,11 @@ void HC595_ClearAll(void)
     HC595_Write(0x0000);
 }
 
+void HC595_ApplyDDSControl(void)
+{
+    HC595_Write(HC595_PackDDSControl(hc595_shadow));
+}
+
 /* ================================================================
  * Control Signals
  * ================================================================ */
@@ -113,8 +142,7 @@ void HC595_ClearAll(void)
 void HC595_Latch(void)
 {
     BSP_GPIO_595_STCP_Set();
-    /* Small delay for setup */
-    for (volatile int i = 0; i < 10; i++) {}
+    __NOP(); __NOP(); __NOP(); __NOP(); __NOP();
     BSP_GPIO_595_STCP_Clr();
 }
 

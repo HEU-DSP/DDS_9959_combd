@@ -23,6 +23,7 @@ void BPSK_GenerateBit(const BPSK_Config *cfg,
     cmd->asf = cfg->asf;
     cmd->pow = bit ? cfg->phase1 : cfg->phase0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_POW;
 }
 
 int BPSK_GenerateFrame(const BPSK_Config *cfg,

@@ -31,6 +31,7 @@ void GFSK_GenerateBit(const GFSK_Config *cfg, uint8_t bit, DDS_Command *cmd)
     cmd->asf = cfg->asf;
     cmd->pow = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_FTW;
 }
 
 int GFSK_GenerateFrame(const GFSK_Config *cfg, uint8_t bit,

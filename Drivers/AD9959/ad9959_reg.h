@@ -236,7 +236,7 @@
  *
  *   [23:16] Amplitude ramp rate.
  *   [15]    Open.
- *   [14]    Amplitude multiplier enable:
+ *   [12]    Amplitude multiplier enable:
  *             0 = bypass (ASF ignored), 1 = enabled (ASF controls amplitude).
  *   [13]    Ramp-up/ramp-down enable (auto RU/RD).
  *   [12]    Load ARR at I/O_UPDATE.
@@ -245,9 +245,9 @@
  *   [9:0]   Amplitude Scale Factor (10-bit): 0 = off, 0x3FF = full scale.
  *   CSR[7:4] selects which channel(s) receive the value.
  * ================================================================ */
-#define ACR_AMP_MULT_ENABLE     (1U << 14)
-#define ACR_AUTO_RAMP_ENABLE    (1U << 13)
-#define ACR_LOAD_ARR_IOUPDATE   (1U << 12)
+#define ACR_AMP_MULT_ENABLE     (1U << 12)
+#define ACR_AUTO_RAMP_ENABLE    (1U << 11)
+#define ACR_LOAD_ARR_IOUPDATE   (1U << 10)
 #define ACR_ASF_Pos             0
 #define ACR_ASF_Msk             0x3FFU
 #define ACR_ASF_MAX             0x3FFU

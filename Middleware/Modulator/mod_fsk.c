@@ -14,6 +14,7 @@ void FSK_GenerateBit(const FSK_Config *cfg, uint8_t bit, DDS_Command *cmd)
     cmd->asf     = cfg->asf;
     cmd->pow     = 0;
     cmd->profile = cfg->profile;
+    cmd->update_kind = DDS_UPDATE_FTW;
 }
 
 int FSK_Generate(const FSK_Config *cfg,

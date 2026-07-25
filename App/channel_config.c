@@ -12,9 +12,8 @@
 #include "dds_encoder.h"
 #include <string.h>
 
-/* Current AD9959 command frames are about 14 bytes per SPI lane. Keep a small
- * guard band so the ISR refill path never writes past the fixed bank size. */
-#define ENCODER_SAFE_FRAME_BYTES  16U
+/* A realtime transaction is at most CFTW: 5 bytes per SPI lane. */
+#define ENCODER_SAFE_FRAME_BYTES  5U
 
 typedef struct {
     bool    have_bit;
@@ -243,10 +242,8 @@ static int build_channel_frame(uint8_t ch, const ModInput *input,
 static bool append_enabled_channels(FrameBank *bank, uint16_t *total,
                                     const ModInput *input)
 {
-    bool wrote_any = false;
-
-    /* A single symbol period may update multiple AD9959 channels, so all
-     * enabled channels are appended into the same DMA bank contiguously. */
+    /* One DMA start has exactly one hardware CS-low window.  Do not append a
+     * second channel/register transaction to this bank. */
     for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
         if (!mod_cfg[ch].enabled) {
             continue;
@@ -263,10 +260,10 @@ static bool append_enabled_channels(FrameBank *bank, uint16_t *total,
         }
 
         *total += (uint16_t)len;
-        wrote_any = true;
+        return true;
     }
 
-    return wrote_any;
+    return false;
 }
 
 bool Encoder_BuildBank(FrameBank *bank, uint16_t *out_bank_bytes)
@@ -292,18 +289,17 @@ bool Encoder_BuildBank(FrameBank *bank, uint16_t *out_bank_bytes)
     /* Current source for bit/symbol/sample bring-up is SymbolBuffer.
      * TODO: Route bit modes through BitBuffer, symbol modes through
      * SymbolBuffer, and AM/FM through SampleBuffer after those queues exist. */
-    while (SymbolBuf_HasData() &&
-           ((FRAME_BUF_SIZE - total) >= ENCODER_SAFE_FRAME_BYTES)) {
+    if (SymbolBuf_HasData() &&
+        ((FRAME_BUF_SIZE - total) >= ENCODER_SAFE_FRAME_BYTES)) {
         uint8_t raw_symbol = 0;
         ModInput input;
         if (!SymbolBuf_ReadBits(&raw_symbol, input_bits)) {
-            break;
+            *out_bank_bytes = total;
+            return false;
         }
         make_mod_input(raw_symbol, input_bits, &input);
 
-        if (!append_enabled_channels(bank, &total, &input)) {
-            break;
-        }
+        (void)append_enabled_channels(bank, &total, &input);
     }
 
     *out_bank_bytes = total;
