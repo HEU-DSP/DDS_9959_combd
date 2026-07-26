@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    dds_encoder.c
- * @brief   DDS_Command → SPI Frame Encoder (2-bit serial mode)
+ * @brief   DDS_Command → Multi-Register SPI Frame Encoder (2-bit serial mode)
  *
  * AD9959 2-bit serial mode (CSR[2:1]=10, per Figure 44):
  *   Each SCLK edge: SDIO_1 = odd bit (7,5,3,1), SDIO_0 = even bit (6,4,2,0).
@@ -10,7 +10,8 @@
  * SPI DataSize=4-bit: each DMA transfer = 4 bits per lane.
  * Encoder builds raw frame bytes, then splits into interleaved SPI buffers.
  *
- * Frame = CSR(2B) + CFTW(5B) + ACR(4B) + CPOW(3B) = 14 bytes per lane.
+ * One frame = CSR(2B) + CFTW(5B) + ACR(4B) + CPOW(3B) = 14 bytes per lane.
+ * A single CS-low window fully configures one channel.
  ******************************************************************************
  */
 
@@ -47,49 +48,42 @@ static void interleave_frames(const uint8_t *raw, uint8_t *spi1,
 int Encoder_FormatCommand(const DDS_Command *cmd,
                           uint8_t *spi1_frame, uint8_t *spi3_frame)
 {
-    /* Build raw (non-interleaved) frame in temp buffer */
-    uint8_t raw[32];
+    uint8_t raw[ENCODER_FRAME_BYTES];
     int idx = 0;
 
-    switch (cmd->update_kind) {
-    case DDS_UPDATE_FTW:
-        raw[idx++] = AD9959_REG_CFTW & 0x7F;
-        raw[idx++] = (cmd->ftw >> 24) & 0xFF;
-        raw[idx++] = (cmd->ftw >> 16) & 0xFF;
-        raw[idx++] = (cmd->ftw >> 8)  & 0xFF;
-        raw[idx++] =  cmd->ftw        & 0xFF;
-        break;
-    case DDS_UPDATE_ASF:
+    /* ── 1. CSR (Channel Select Register): 2 bytes ──
+     *    Select target channel + keep 2-bit serial mode.
+     *    CSR takes effect immediately (no IO_UPDATE needed). */
+    uint8_t csr_data = CSR_CHANNEL(cmd->profile) | CSR_IO_MODE_2BIT;
+    raw[idx++] = AD9959_REG_CSR & 0x7F;
+    raw[idx++] = csr_data;
+
+    /* ── 2. CFTW (Frequency Tuning Word): 5 bytes ── */
+    raw[idx++] = AD9959_REG_CFTW & 0x7F;
+    raw[idx++] = (cmd->ftw >> 24) & 0xFF;
+    raw[idx++] = (cmd->ftw >> 16) & 0xFF;
+    raw[idx++] = (cmd->ftw >> 8)  & 0xFF;
+    raw[idx++] =  cmd->ftw        & 0xFF;
+
+    /* ── 3. ACR (Amplitude Control Register): 4 bytes ──
+     *    ASF at [9:0], AMP_MULT_ENABLE at bit 12, ramp rate = 0. */
     {
         uint32_t acr = ((uint32_t)(cmd->asf & ACR_ASF_Msk) << ACR_ASF_Pos) |
                        ACR_AMP_MULT_ENABLE;
         raw[idx++] = AD9959_REG_ACR & 0x7F;
-        raw[idx++] = (acr >> 16) & 0xFF;
-        raw[idx++] = (acr >> 8)  & 0xFF;
-        raw[idx++] =  acr        & 0xFF;
-        break;
-    }
-    case DDS_UPDATE_POW:
-        raw[idx++] = AD9959_REG_CPOW & 0x7F;
-        raw[idx++] = (cmd->pow >> 8) & 0x3F;
-        raw[idx++] =  cmd->pow       & 0xFF;
-        break;
-    default:
-        return 0;
+        raw[idx++] = (acr >> 16) & 0xFF;   /* ramp rate = 0x00 */
+        raw[idx++] = (acr >> 8)  & 0xFF;   /* AMP_MULT | ASF[9:8] */
+        raw[idx++] =  acr        & 0xFF;   /* ASF[7:0] */
     }
 
-    /* ---- Bit-interleave into separate SPI1/SPI3 buffers ---- */
-    interleave_frames(raw, spi1_frame, spi3_frame, idx);
+    /* ── 4. CPOW (Phase Offset Word): 3 bytes ──
+     *    14-bit phase: POW[13:0], upper 2 bits reserved = 0. */
+    raw[idx++] = AD9959_REG_CPOW & 0x7F;
+    raw[idx++] = (cmd->pow >> 8) & 0x3F;   /* POW[13:8] */
+    raw[idx++] =  cmd->pow       & 0xFF;   /* POW[7:0] */
 
-    return idx;
-}
+    /* ── Bit-interleave into separate SPI1/SPI3 buffers ── */
+    interleave_frames(raw, spi1_frame, spi3_frame, ENCODER_FRAME_BYTES);
 
-int Encoder_FormatCommands(const DDS_Command *cmds, int num_cmds,
-                           uint8_t *spi1_frame, uint8_t *spi3_frame)
-{
-    /* One DMA transfer gives only one CS-low interval. */
-    if ((cmds == 0) || (num_cmds != 1)) {
-        return 0;
-    }
-    return Encoder_FormatCommand(cmds, spi1_frame, spi3_frame);
+    return ENCODER_FRAME_BYTES;
 }

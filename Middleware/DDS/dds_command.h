@@ -10,12 +10,6 @@
 
 #include <stdint.h>
 
-typedef enum {
-    DDS_UPDATE_FTW,
-    DDS_UPDATE_ASF,
-    DDS_UPDATE_POW
-} DDS_UpdateKind;
-
 typedef struct {
     uint32_t ftw;        /* Frequency Tuning Word (32-bit)
                             f_out = ftw / 2^32 * SYSCLK         */
@@ -23,8 +17,7 @@ typedef struct {
                             0 = off, 0x3FF = full scale          */
     uint16_t pow;        /* Phase Offset Word (14-bit)
                             0–16383                             */
-    uint8_t  profile;    /* Target Profile pin (0–7)             */
-    DDS_UpdateKind update_kind; /* Register written by this DMA frame */
+    uint8_t  profile;    /* Target channel (0–3)                 */
 } DDS_Command;
 
 /**

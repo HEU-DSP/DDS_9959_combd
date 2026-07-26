@@ -12,8 +12,8 @@
 #include "dds_encoder.h"
 #include <string.h>
 
-/* A realtime transaction is at most CFTW: 5 bytes per SPI lane. */
-#define ENCODER_SAFE_FRAME_BYTES  5U
+/* Multi-register full frame: CSR(2) + CFTW(5) + ACR(4) + CPOW(3) = 14 bytes. */
+#define ENCODER_SAFE_FRAME_BYTES  ENCODER_FRAME_BYTES
 
 typedef struct {
     bool    have_bit;
@@ -242,8 +242,8 @@ static int build_channel_frame(uint8_t ch, const ModInput *input,
 static bool append_enabled_channels(FrameBank *bank, uint16_t *total,
                                     const ModInput *input)
 {
-    /* One DMA start has exactly one hardware CS-low window.  Do not append a
-     * second channel/register transaction to this bank. */
+    /* One DMA start = one CS-low window = one full multi-register frame.
+     * Do not append a second channel to this bank. */
     for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
         if (!mod_cfg[ch].enabled) {
             continue;

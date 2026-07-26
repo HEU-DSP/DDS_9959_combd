@@ -618,7 +618,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
     pSyncConfig.EventEnable = DISABLE;
-    pSyncConfig.RequestNumber = 5;
+    pSyncConfig.RequestNumber = 14;  /* Must match ENCODER_FRAME_BYTES */
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi1_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -685,7 +685,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
     pSyncConfig.EventEnable = DISABLE;
-    pSyncConfig.RequestNumber = 5;
+    pSyncConfig.RequestNumber = 14;  /* Must match ENCODER_FRAME_BYTES */
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi3_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
