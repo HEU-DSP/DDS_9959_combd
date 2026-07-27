@@ -62,24 +62,8 @@ void HC595_Init(void)
 
 void HC595_Write(uint16_t data)
 {
-    /* USART10 frame = 16-bit. Due to half-duplex mode,
-     * TX pin toggles per bit at baud rate.
-     * AD9959-side SHCP must be driven by a separate GPIO (PE4)
-     * or derived from the USART clock.
-     *
-     * Current approach: use USART10 TX to send 16 bits as a
-     * UART frame. The UART TX pin (PE3) drives DS directly.
-     * SHCP (PE4) must be toggled by software in sync with
-     * USART bit timing — OR use USART10's TX pin mode only
-     * for DS, and manually clock SHCP.
-     *
-     * Simpler Phase 1 approach: bit-bang via GPIO.
-     * (USART10 auto-clocking may require external wiring
-     * of TX to SHCP, which is not the case here.) */
-
-    /* Bit-bang 16 bits: MSB first (chip2→chip1 cascade order)
+    /* Bit-bang 16 bits MSB-first via GPIO:
      * Standard cascade: first byte → chip1, second byte → chip2.
-     * USART frame order: send chip1 byte first, then chip2 byte.
      * Each byte: MSB first (standard SPI-like shift). */
 
     uint16_t mask = 0x8000U;

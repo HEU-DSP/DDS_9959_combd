@@ -18,6 +18,13 @@
  * ================================================================ */
 #define AD9959_SYSCLK_HZ   490909091UL   /* 24.545 MHz REF_CLK x20 */
 
+/* ================================================================
+ * Transport mode
+ *   1 = downgrade: TIM8 periodic ISR + single-wire SPI1 (no DMA)
+ *   0 = original:  LPTIM3 → DMA → SPI1+SPI3 → TIM2 → TIM8 chain
+ * ================================================================ */
+#define AD9959_DOWNGRADE_MODE  1
+
 /* Bring-up mode: program CH0 CW entirely through the one-bit DIO0 protocol. */
 #define AD9959_DIRECT_CW_TEST  0
 

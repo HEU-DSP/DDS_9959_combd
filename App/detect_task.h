@@ -1,45 +1,48 @@
-#ifndef __DETECT_TASK_H
-#define __DETECT_TASK_H
+/**
+ ******************************************************************************
+ * @file    detect_task.h
+ * @brief   Timeout detection module — generic event-loss monitor
+ *
+ * Monitors a list of events; each event has a configurable timeout.
+ * Call DetectTask_Hook() to reset an event's timer when it fires.
+ * DetectTask_Process() checks all events and flags any that have timed out.
+ ******************************************************************************
+ */
 
-#include "controller.h"
+#ifndef __DETECT_TASK_H__
+#define __DETECT_TASK_H__
+
+#include <stdint.h>
 #include <stdbool.h>
 
 #define USER_GetTick HAL_GetTick
 
-#ifdef _CMSIS_OS_H
-#define USER_Delay_ms vTaskDelay
-#else
-#define USER_Delay_ms HAL_Delay
-#endif
-
-typedef struct 
-{ 
-    bool is_Lost;
-    bool Overtime_Exit;
-    float Overtime_ms;
+typedef struct
+{
+    bool  is_lost;
+    bool  overtime_exit;
+    float overtime_ms;
     float new_time;
     float dt_ms;
-    
-}Detect_t;
+} DetectTask_TypeDef;
 
-enum errorlist
+enum DetectTask_EventList
 {
-    ADC1_WATCHDOG1_TOE,
-    ADC1_WATCHDOG2_TOE,
-    ADC2_WATCHDOG1_TOE,
-    CONNECTING_TO_CONNECTED_TOE,
-    CAN_BIGCUP_RX_TOE,
-    USART3_TX_TOE,
-    USART3_RX_TOE,
-    CONNECTED_UVLO_TIMEOUT_TOE,
-    CAN_MIAO_RX_TOE,
+    DETECT_EVENT_0,
+    DETECT_EVENT_1,
+    DETECT_EVENT_2,
+    DETECT_EVENT_3,
+    DETECT_EVENT_4,
+    DETECT_EVENT_5,
+    DETECT_EVENT_6,
+    DETECT_EVENT_7,
+    DETECT_EVENT_8,
     DETECT_LIST_LENGTH,
-
 };
 
-void Detect_Init();
-void Detect_Task();
-void Detect_Hook(uint8_t toe);
-uint8_t is_TOE_Overtime(uint8_t toe);
+void DetectTask_Init(void);
+void DetectTask_Process(void);
+void DetectTask_Hook(uint8_t event);
+uint8_t DetectTask_IsOvertime(uint8_t event);
 
-#endif
+#endif /* __DETECT_TASK_H__ */

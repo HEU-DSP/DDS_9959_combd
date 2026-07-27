@@ -6,8 +6,8 @@
  * Clock frequencies (from CubeMX RCC config):
  *   TIM2  (APB2) = 256 MHz
  *   TIM4  (APB1) = 128 MHz
- *   TIM8  (APB2) = 256 MHz
- *   TIM15 (APB2) = 256 MHz
+ *   TIM8  (APB2) = 281.25 MHz (PCLK2×2, APB2 presc≠1)
+ *   TIM15 (APB2) = 281.25 MHz
  ******************************************************************************
  */
 
@@ -107,8 +107,43 @@ void BSP_TIM8_Start(void)
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 }
 
+/* APB2 timer clock from current CubeMX clock tree:
+ *   HSE = 25 MHz, PLLM=3, PLLN=135, PLLR=2 → SYSCLK = 562.5 MHz
+ *   HCLK = SYSCLK / 2     = 281.25 MHz  (AHB DIV2)
+ *   PCLK2 = HCLK / 2      = 140.625 MHz (APB2 DIV2)
+ *   APB2 TimClk = 2×PCLK2 = 281.25 MHz  (timer doubler when APB2 presc ≠ 1) */
+#define BSP_APB2_TIM_CLK_HZ  281250000UL
+
+void BSP_TIM8_StartFreeRun(uint32_t freq_hz)
+{
+    /* Disable counter before reconfiguration. */
+    TIM8->CR1 &= ~TIM_CR1_CEN;
+
+    /* Free-running: no slave mode, no external trigger. */
+    TIM8->SMCR = 0U;
+    TIM8->PSC  = 0U;
+    uint32_t arr = (BSP_APB2_TIM_CLK_HZ / freq_hz) - 1;
+    if (arr > 0xFFFFU) arr = 0xFFFFU;
+    TIM8->ARR = (uint16_t)arr;
+    TIM8->CNT = 0U;
+    TIM8->EGR = TIM_EGR_UG;
+    TIM8->SR  = 0U;
+
+    /* Disable output-compare channels — only the update interrupt is used. */
+    TIM8->CCER = 0U;
+
+    /* Enable auto-reload preload and update interrupt. */
+    TIM8->CR1 = TIM_CR1_ARPE;
+    TIM8->DIER = TIM_IT_UPDATE;
+
+    /* Start counter. */
+    TIM8->CR1 |= TIM_CR1_CEN;
+}
+
 void BSP_TIM8_Stop(void)
 {
+    TIM8->CR1 &= ~TIM_CR1_CEN;
+    TIM8->DIER &= ~TIM_IT_UPDATE;
     HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
     HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
 }
@@ -141,17 +176,16 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
     (void)htim;
 }
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM5) {
-        Led_Refresh();
-    }
-}
+/* HAL_TIM_PeriodElapsedCallback moved to main.c for combined TIM5+TIM8 handling. */
 
 /* ================================================================
- * LPTIM1 — DMA Sync Gate (16 MHz after /8 prescaler)
+ * LPTIM3 — DMA Sync Gate (16 MHz after /8 prescaler)
+ *
+ * Disabled in downgrade mode (LPTIM3 removed from CubeMX config).
+ * Code retained for future re-enablement.
  * ================================================================ */
+
+#ifdef HAL_LPTIM_MODULE_ENABLED
 
 extern LPTIM_HandleTypeDef hlptim3;
 static uint16_t lptim3_period = 0;
@@ -175,3 +209,5 @@ void BSP_LPTIM3_Stop(void)
 {
     HAL_LPTIM_Counter_Stop(&hlptim3);
 }
+
+#endif /* HAL_LPTIM_MODULE_ENABLED */

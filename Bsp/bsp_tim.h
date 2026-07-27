@@ -75,6 +75,19 @@ void BSP_TIM8_Start(void);
  */
 void BSP_TIM8_Stop(void);
 
+/**
+ * @brief  Configure TIM8 as free-running periodic timer (no slave/PWM).
+ *
+ * Used in downgrade mode: TIM8 generates a periodic update interrupt at
+ * the requested frequency, driving single-wire AD9959 register sync.
+ *
+ * @param  freq_hz  : update interrupt frequency (e.g. 100000 → 100 kHz)
+ * @note   TIM8 clock = 256 MHz (APB2), PSC = 0.
+ *         ARR = 256 000 000 / freq_hz - 1.
+ *         This overrides the old slave-mode + PWM configuration.
+ */
+void BSP_TIM8_StartFreeRun(uint32_t freq_hz);
+
 /* ================================================================
  * TIM15 — REF_CLK for AD9959 (CH1 PWM)
  * ================================================================ */
@@ -94,25 +107,31 @@ void BSP_TIM15_SetREFCLK(uint32_t freq_hz);
 void BSP_TIM15_Start(void);
 
 /* ================================================================
- * LPTIM1 — DMA Sync Gate (OUT signal to DMAMUX)
+ * LPTIM3 — DMA Sync Gate (OUT signal to DMAMUX)
+ *
+ * Disabled in downgrade mode.  Guarded by HAL_LPTIM_MODULE_ENABLED.
  * ================================================================ */
 
+#ifdef HAL_LPTIM_MODULE_ENABLED
+
 /**
- * @brief  Set LPTIM1 auto-reload period
- * @param  period  : ARR value (LPTIM1 clock = 4 MHz after /32 prescaler)
- * @note   Period match generates LPTIM1_OUT → DMAMUX sync gate open
+ * @brief  Set LPTIM3 auto-reload period
+ * @param  period  : ARR value (LPTIM3 clock = 16 MHz after /8 prescaler)
+ * @note   Period match generates LPTIM3_OUT → DMAMUX sync gate open
  */
 void BSP_LPTIM3_SetPeriod(uint16_t period);
 
 /**
- * @brief  Start LPTIM1 free-running counter with given period
+ * @brief  Start LPTIM3 free-running counter with given period
  * @param  period  : if 0, use previously set value
  */
 void BSP_LPTIM3_Start(uint16_t period);
 
 /**
- * @brief  Stop LPTIM1 counter
+ * @brief  Stop LPTIM3 counter
  */
 void BSP_LPTIM3_Stop(void);
+
+#endif /* HAL_LPTIM_MODULE_ENABLED */
 
 #endif /* __BSP_TIM_H__ */

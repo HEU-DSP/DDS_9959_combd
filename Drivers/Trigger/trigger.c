@@ -22,7 +22,9 @@ void Trigger_Init(const Trigger_Config *cfg)
     tx_active = 0;
 
     uint16_t lptim_period = (16000000UL / cfg->sample_rate) - 1;
+#ifdef HAL_LPTIM_MODULE_ENABLED
     BSP_LPTIM3_SetPeriod(lptim_period);
+#endif
 
     BSP_TIM8_SetDelay(TIM_CHANNEL_1, cfg->ch1_delay);
     BSP_TIM8_SetDelay(TIM_CHANNEL_2, cfg->ch2_delay);
@@ -39,18 +41,24 @@ void Trigger_Start(void)
 {
     ad9959_diag.dma_frame_bytes = trig_cfg.bank_size;
     __disable_irq();
+#ifdef HAL_LPTIM_MODULE_ENABLED
     LPTIM3->CNT = 0;
+#endif
     __enable_irq();
 
     BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, trig_cfg.spi3_ping,
                            trig_cfg.bank_size);
 
+#ifdef HAL_LPTIM_MODULE_ENABLED
     BSP_LPTIM3_Start(0);
+#endif
 }
 
 void Trigger_Stop(void)
 {
+#ifdef HAL_LPTIM_MODULE_ENABLED
     BSP_LPTIM3_Stop();
+#endif
     BSP_TIM8_Stop();
 #if AD9959_TIM4_MONITOR_ENABLE
     BSP_TIM4_Stop();
@@ -61,7 +69,9 @@ void Trigger_Stop(void)
 void Trigger_Restart(void)
 {
     __disable_irq();
+#ifdef HAL_LPTIM_MODULE_ENABLED
     LPTIM3->CNT = 0;
+#endif
     __enable_irq();
 
     FrameBank *active = TxBuf_GetActive();
@@ -72,7 +82,9 @@ void Trigger_Restart(void)
     BSP_TIM4_Start();
 #endif
     BSP_TIM8_Start();
+#ifdef HAL_LPTIM_MODULE_ENABLED
     BSP_LPTIM3_Start(0);
+#endif
 }
 
 void Trigger_SwapBuffer(void)

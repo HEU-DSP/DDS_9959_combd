@@ -1,11 +1,12 @@
 /**
  ******************************************************************************
  * @file    channel_config.h
- * @brief   Middleware encoder: mod_cfg + sym_buf → SPI frames → tx_bank
+ * @brief   Middleware encoder: mod_cfg + sym_buf → pre-encoded DDS frames
  *
- * Encoder_BuildBank() is called from DMA ISR after a bank completes.
- * It reads global mod_cfg[4] and sym_buf, encodes SPI frames,
- * and fills the idle ping-pong bank.
+ * Encoder_BuildBank() is called from the main loop (or TIM8 ISR in
+ * downgrade mode).  It reads global mod_cfg[4] and sym_buf, pre-encodes
+ * DDS_EncodedFrame structs into pre_encoded[], ready for single-wire
+ * SPI replay in the TIM8 periodic ISR.
  ******************************************************************************
  */
 
@@ -14,14 +15,17 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "tx_buffer.h"
+#include "mod_config.h"
+#include "dds_encoder.h"
+
+/** Pre-encoded frames, one per channel, for TIM8 ISR replay. */
+extern DDS_EncodedFrame pre_encoded[DDS_CHANNEL_COUNT];
+extern uint8_t pre_encoded_mask;  /* bitmask of channels with valid frames */
 
 /**
- * @brief  Build encoded SPI frames from mod_cfg + sym_buf into a bank.
- * @param  bank          : idle bank to fill
- * @param  out_bank_bytes: [out] total bytes written
- * @return true if frames were generated, false if no data (should STOP).
+ * @brief  Build pre-encoded DDS frames from mod_cfg + sym_buf.
+ * @return true if at least one channel encoded, false if no active config.
  */
-bool Encoder_BuildBank(FrameBank *bank, uint16_t *out_bank_bytes);
+bool Encoder_BuildBank(void);
 
 #endif /* __CHANNEL_CONFIG_H__ */

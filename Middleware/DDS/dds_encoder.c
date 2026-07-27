@@ -42,7 +42,59 @@ static void interleave_frames(const uint8_t *raw, uint8_t *spi1,
 }
 
 /* ================================================================
- * Public API
+ * Public API — 1-bit single-wire encoder
+ * ================================================================ */
+
+void Encoder_WriteStaticRegs(SPI_HandleTypeDef *hspi, uint8_t channel_mask)
+{
+    /* CFR is identical for every channel. */
+    const uint8_t cfr[4] = {
+        AD9959_REG_CFR & 0x7F,
+        0x00U,
+        0x03U,   /* DAC I[9:8]=11 (max), bits[15:10]=0 */
+        0x02U    /* sine enable [1]=1, others=0 */
+    };
+
+    for (uint8_t ch = 0; ch < 4U; ch++) {
+        if (!(channel_mask & (1U << ch))) continue;
+
+        /* CSR: select channel — takes effect immediately. */
+        uint8_t csr[2] = {
+            AD9959_REG_CSR & 0x7F,
+            CSR_CHANNEL(ch)
+        };
+        HAL_SPI_Transmit(hspi, csr, sizeof(csr), HAL_MAX_DELAY);
+        HAL_SPI_Transmit(hspi, (uint8_t *)cfr, sizeof(cfr), HAL_MAX_DELAY);
+    }
+}
+
+void Encoder_Encode1Bit(const DDS_Command *cmd, DDS_EncodedFrame *frame)
+{
+    /* ── CFTW: 5 bytes ── */
+    frame->cftw[0] = AD9959_REG_CFTW & 0x7F;
+    frame->cftw[1] = (cmd->ftw >> 24) & 0xFF;
+    frame->cftw[2] = (cmd->ftw >> 16) & 0xFF;
+    frame->cftw[3] = (cmd->ftw >> 8)  & 0xFF;
+    frame->cftw[4] =  cmd->ftw        & 0xFF;
+
+    /* ── ACR: 4 bytes ── */
+    {
+        uint32_t acr = ((uint32_t)(cmd->asf & ACR_ASF_Msk) << ACR_ASF_Pos) |
+                       ACR_AMP_MULT_ENABLE;
+        frame->acr[0] = AD9959_REG_ACR & 0x7F;
+        frame->acr[1] = (acr >> 16) & 0xFF;
+        frame->acr[2] = (acr >> 8)  & 0xFF;
+        frame->acr[3] =  acr        & 0xFF;
+    }
+
+    /* ── CPOW: 3 bytes ── */
+    frame->cpow[0] = AD9959_REG_CPOW & 0x7F;
+    frame->cpow[1] = (cmd->pow >> 8) & 0x3F;
+    frame->cpow[2] =  cmd->pow       & 0xFF;
+}
+
+/* ================================================================
+ * Public API — 2-bit dual-wire encoder (original)
  * ================================================================ */
 
 int Encoder_FormatCommand(const DDS_Command *cmd,
