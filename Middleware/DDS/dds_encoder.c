@@ -15,8 +15,57 @@
  ******************************************************************************
  */
 
+/*
+ * AD9959 Phase/Sweep Accumulator Clear Control Description:
+ *
+ * The phase accumulator clear function is controlled by multiple sources:
+ *
+ * 1. Channel level control:
+ *    - CFR.Bit1: Clear Phase Accumulator
+ *      When set to 1, the corresponding channel phase accumulator is held
+ *      in the cleared state until this bit is released.
+ *
+ *    - CFR.Bit2: Autoclear Phase Accumulator
+ *      When enabled, an I/O_UPDATE operation generates a clear request for
+ *      the phase accumulator. The accumulator is cleared once and then
+ *      resumes operation after the clear condition is removed.
+ *
+ * 2. Global control:
+ *    - FR2.All Channels Clear Phase Accumulator
+ *      Provides a global clear request for all channels.
+ *
+ *    - FR2.All Channels Autoclear Phase Accumulator
+ *      Provides a global autoclear request for all channels on I/O_UPDATE.
+ *
+ * 3. Clear mode:
+ *    - FR2 Phase/Sweep Accumulator Clear Mode
+ *      Does not generate a clear request. It only determines how the clear
+ *      request is applied:
+ *      synchronous clear: accumulator is cleared on the system clock edge;
+ *      asynchronous clear: accumulator is cleared immediately when the
+ *      clear request becomes active.
+ *
+ * The final clear condition can be considered as:
+ *
+ *   Clear_Request =
+ *       CFR.Bit1
+ *     | CFR.Bit2 (triggered by I/O_UPDATE)
+ *     | FR2.All_Clear
+ *     | FR2.All_Autoclear (triggered by I/O_UPDATE)
+ *
+ * For continuous wave output and continuous phase modulation:
+ *   CFR.Bit1  = 0
+ *   CFR.Bit2  = 0
+ *   FR2.All_Clear = 0
+ *   FR2.All_Autoclear = 0
+ *
+ * Otherwise, every I/O_UPDATE may introduce phase discontinuity and
+ * generate unwanted spectral spurs.
+ */
+
 #include "dds_encoder.h"
 #include "ad9959_reg.h"
+#include "ad9959.h"
 #include <string.h>
 
 /* ---- Bit interleave: one raw byte → two 4-bit SPI values ---- */
@@ -45,26 +94,17 @@ static void interleave_frames(const uint8_t *raw, uint8_t *spi1,
  * Public API — 1-bit single-wire encoder
  * ================================================================ */
 
-void Encoder_WriteStaticRegs(SPI_HandleTypeDef *hspi, uint8_t channel_mask)
+void Encoder_WriteStaticRegs(uint8_t channel_mask)
 {
-    /* CFR is identical for every channel. */
-    const uint8_t cfr[4] = {
-        AD9959_REG_CFR & 0x7F,
-        0x00U,
-        0x03U,   /* DAC I[9:8]=11 (max), bits[15:10]=0 */
-        0x02U    /* sine enable [1]=1, others=0 */
-    };
+    /* CFR data is identical for every channel. */
+    const uint8_t cfr_data[3] = { 0x00U, 0x03U, 0x00U };
 
     for (uint8_t ch = 0; ch < 4U; ch++) {
         if (!(channel_mask & (1U << ch))) continue;
 
-        /* CSR: select channel — takes effect immediately. */
-        uint8_t csr[2] = {
-            AD9959_REG_CSR & 0x7F,
-            CSR_CHANNEL(ch)
-        };
-        HAL_SPI_Transmit(hspi, csr, sizeof(csr), HAL_MAX_DELAY);
-        HAL_SPI_Transmit(hspi, (uint8_t *)cfr, sizeof(cfr), HAL_MAX_DELAY);
+        uint8_t csr_data = CSR_CHANNEL(ch);
+        AD9959_WriteRegister(AD9959_REG_CSR, &csr_data, 1);
+        AD9959_WriteRegister(AD9959_REG_CFR, cfr_data, 3);
     }
 }
 

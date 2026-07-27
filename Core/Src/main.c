@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ad9959.h"
+#include "ad9959_reg.h"
 #include "hc595.h"
 #include "bsp_spi.h"
 #include "bsp_tim.h"
@@ -116,15 +117,11 @@ static void MX_TIM5_Init(void);
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM5) {
-        Led_Refresh();
-        return;
-    }
-
     if (htim->Instance == TIM8) {
-        /* Replay data-register frames (CFTW+ACR+CPOW) for all enabled
-         * channels.  CSR+CFR are static — written once on init / mode
-         * change, never in the ISR. */
+        /* TIM8 CH1 hardware PWM generates IO_UPDATE automatically at
+         * every period update.  SPI data sent here is applied by the
+         * NEXT period's IO_UPDATE (one-sample pipeline, transparent
+         * for CW and all modulations). */
         for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
             if (!(pre_encoded_mask & (1U << ch))) continue;
 
@@ -134,9 +131,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             HAL_SPI_Transmit(&hspi1, (uint8_t *)f->cpow, sizeof(f->cpow), HAL_MAX_DELAY);
         }
 
-        AD9959_IOUpdate();
         ds.frame_count++;
         ad9959_diag.frame_count = ds.frame_count;
+        return;
+    }
+
+    if (htim->Instance == TIM5) {
+        Led_Refresh();
         return;
     }
 }
@@ -198,14 +199,6 @@ int main(void)
   tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
   TxTiming_Update();
 
-  /* ---- CH1 CW: CH0 is known faulty and the other channels stay inactive. */
-  ModCfg_Disable(0);
-  ModCfg_Disable(1);
-  ModCfg_Disable(2);
-  ModCfg_Disable(3);
-  ModCfg_SetCW(1, FTW_100P3MHZ, 0x3FF);
-  SymbolBuf_Clear();
-
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
   /* ── LED system: TIM5 10 Hz ISR drives indicator refresh ── */
@@ -225,22 +218,54 @@ int main(void)
 #else
   AD9959_Init();
   leds.analog_ready = LED_ON;          /* DDS powered → ANALOG steady on */
-  /* Validated official CH1 test sequence. */
-  AD9959_SetCWOfficialChannel(1, FTW_100P3MHZ, 0x3FF);
 #if AD9959_CYCLIC_FTW_DMA_TEST
   AD9959_CyclicFTW_Start(FTW_10MHZ, AD9959_CYCLIC_FTW_PERIOD_MS);
 #endif
 #endif
 
 #if !AD9959_DIRECT_CW_TEST
-  /* ---- Write static registers once (CSR + CFR for each enabled channel) ---- */
-  Encoder_WriteStaticRegs(&hspi1, 1U << 1);   /* CH1 only */
+  /* ---- All 4 channels CW @ 99.7 MHz, full amplitude ---- */
+  ModCfg_SetCW(0, FTW_99P7MHZ, 0x3FF);
+  ModCfg_SetCW(1, FTW_99P7MHZ, 0x3FF);
+  ModCfg_SetCW(2, FTW_99P7MHZ, 0x3FF);
+  ModCfg_SetCW(3, FTW_99P7MHZ, 0x3FF);
+  SymbolBuf_Clear();
+
+  /* Template1-style: CSR before every data register, all 4 channels,
+   * one IO_UPDATE at end.  HAL_SPI_Transmit is blocking — no extra
+   * delay needed between writes. */
+  AD9959_IOUpdateGpioInit();    /* borrow PC6 as GPIO */
+  {
+      const uint8_t cfr[3]  = {0x00, 0x03, 0x00};          /* CFR */
+      const uint8_t cftw[4] = {0x33, 0xF9, 0xC9, 0xA7};    /* 99.7 MHz */
+      const uint8_t acr[3]  = {0x00, 0x13, 0xFF};          /* ASF=0x3FF */
+      const uint8_t cpow[2] = {0x00, 0x00};                /* phase=0 */
+
+      for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
+          const uint8_t csr = CSR_CHANNEL(ch);
+
+          AD9959_WriteRegister(AD9959_REG_CSR,  &csr,  1);
+          AD9959_WriteRegister(AD9959_REG_CFR,  cfr,   3);
+
+          AD9959_WriteRegister(AD9959_REG_CSR,  &csr,  1);
+          AD9959_WriteRegister(AD9959_REG_CFTW, cftw,  4);
+
+          AD9959_WriteRegister(AD9959_REG_CSR,  &csr,  1);
+          AD9959_WriteRegister(AD9959_REG_ACR,  acr,   3);
+
+          AD9959_WriteRegister(AD9959_REG_CSR,  &csr,  1);
+          AD9959_WriteRegister(AD9959_REG_CPOW, cpow,  2);
+      }
+
+      AD9959_IOUpdate();
+  }
+  AD9959_IOUpdateTimerInit();  /* return PC6 to TIM8_CH1 AF */
 
   /* ---- Prime first pre-encoded data frames ---- */
   Encoder_BuildBank();
 
-  /* ---- Start TIM8 free-running @ 100 kHz (downgrade mode heartbeat) ---- */
-  BSP_TIM8_StartFreeRun(100000U);
+  /* ---- Start TIM8 free-running @ 100 Hz (downgrade mode heartbeat) ---- */
+  BSP_TIM8_StartFreeRun(100U);
   ad9959_diag.tx_running = 1U;
   ad9959_diag.tx_stop_pending = 0U;
 #endif
@@ -268,7 +293,7 @@ int main(void)
               for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
                   if (mod_cfg[ch].enabled) mask |= (1U << ch);
               }
-              Encoder_WriteStaticRegs(&hspi1, mask);
+              Encoder_WriteStaticRegs(mask);
               Encoder_BuildBank();
               debug_reload = 0;
           }

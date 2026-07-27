@@ -18,7 +18,6 @@
 #define __DDS_ENCODER_H__
 
 #include "dds_command.h"
-#include "stm32h7xx_hal.h"    /* for SPI_HandleTypeDef in Encoder_WriteStaticRegs */
 
 /** Total bytes per SPI lane in a multi-register full frame. */
 #define ENCODER_FRAME_BYTES  14U
@@ -46,7 +45,7 @@ typedef struct {
  * @param  hspi         : SPI1 handle (8-bit, blocking)
  * @param  channel_mask : bitmask of channels to configure (e.g. 1<<1)
  */
-void Encoder_WriteStaticRegs(SPI_HandleTypeDef *hspi, uint8_t channel_mask);
+void Encoder_WriteStaticRegs(uint8_t channel_mask);
 
 /**
  * @brief  Pre-encode data registers (CFTW+ACR+CPOW) for TIM8 ISR replay.

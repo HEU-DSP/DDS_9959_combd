@@ -119,22 +119,28 @@ void BSP_TIM8_StartFreeRun(uint32_t freq_hz)
     /* Disable counter before reconfiguration. */
     TIM8->CR1 &= ~TIM_CR1_CEN;
 
-    /* Free-running: no slave mode, no external trigger. */
+    /* Keep CubeMX PWM config on CH1/CH2 (CCMR1, CCER, BDTR).
+     * Only adjust period and ensure free-running (no slave mode). */
     TIM8->SMCR = 0U;
     TIM8->PSC  = 0U;
     uint32_t arr = (BSP_APB2_TIM_CLK_HZ / freq_hz) - 1;
     if (arr > 0xFFFFU) arr = 0xFFFFU;
     TIM8->ARR = (uint16_t)arr;
+    TIM8->CCR1 = 500U;   /* PWM1: ~18 ns positive pulse for IO_UPDATE */
     TIM8->CNT = 0U;
     TIM8->EGR = TIM_EGR_UG;
     TIM8->SR  = 0U;
 
-    /* Disable output-compare channels — only the update interrupt is used. */
-    TIM8->CCER = 0U;
+    /* Enable CH1 output (IO_UPDATE on PC6).  CubeMX configures the
+     * channel but does not start it — HAL_TIM_PWM_Start is skipped.
+     * TIM8 is an advanced timer: MOE is required for any pin output. */
+    TIM8->BDTR |= TIM_BDTR_MOE;
+    TIM8->CCER |= TIM_CCER_CC1E;
 
-    /* Enable auto-reload preload and update interrupt. */
-    TIM8->CR1 = TIM_CR1_ARPE;
-    TIM8->DIER = TIM_IT_UPDATE;
+    /* Enable auto-reload preload and update interrupt.
+     * CH1 PWM runs continuously — hardware IO_UPDATE at every period. */
+    TIM8->CR1 |= TIM_CR1_ARPE;
+    TIM8->DIER |= TIM_IT_UPDATE;
 
     /* Start counter. */
     TIM8->CR1 |= TIM_CR1_CEN;

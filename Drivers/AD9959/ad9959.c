@@ -281,7 +281,7 @@ static void AD9959_ConfigureDirectIdlePins(void)
     HAL_GPIO_Init(GPIOB, &gpio);
 }
 
-static void AD9959_IOUpdateGpioInit(void)
+void AD9959_IOUpdateGpioInit(void)
 {
     GPIO_InitTypeDef gpio = {0};
 
@@ -296,7 +296,7 @@ static void AD9959_IOUpdateGpioInit(void)
 
 /* The single-line setup drives IO_UPDATE as GPIO.  Before the runtime chain
  * starts, hand PC6 back to TIM8_CH1 exactly as CubeMX configured it. */
-static void AD9959_IOUpdateTimerInit(void)
+void AD9959_IOUpdateTimerInit(void)
 {
     GPIO_InitTypeDef gpio = {0};
 
@@ -378,9 +378,7 @@ static HAL_StatusTypeDef AD9959_SoftwareSpiTransmit(const uint8_t *data,
 void AD9959_Init(void)
 {
     ad9959_diag.init_stage = 0U;
-    /* Direct one-bit bring-up owns PC6 as GPIO. TIM8 is not used here. */
     AD9959_ConfigureDirectIdlePins();
-    AD9959_IOUpdateGpioInit();
 #if AD9959_SOFTWARE_SPI_TEST
     AD9959_SoftwareSpiInit();
 #endif
@@ -388,45 +386,28 @@ void AD9959_Init(void)
     ad9959_hwspi_debug = (AD9959_HardwareSpiDebug){0};
     ad9959_hwspi_debug.software_spi = AD9959_SOFTWARE_SPI_TEST;
 
+    /* Power-up: 1.8VD → 1.8VA → 3.3VD, master_reset held high throughout. */
     AD9959_PowerUpSequence();
-    ad9959_diag.master_reset = hc595_dds_control.master_reset ? 1U : 0U;
-    ad9959_diag.power_down = hc595_dds_control.power_down ? 1U : 0U;
     ad9959_diag.init_stage = 1U;
 
-    /* Start REF_CLK after supplies settle, then release reset after one
-     * additional millisecond as in the last validated DMA configuration. */
+    /* Start REF_CLK, then release master_reset — aligned with Template1
+     * IntReset() behaviour. */
     BSP_TIM15_SetREFCLK(25000000UL);
     BSP_TIM15_Start();
     HAL_Delay(1);
     ad9959_diag.init_stage = 2U;
 
-    /* REF_CLK is running and reset has been asserted for more than one
-     * SYNC_CLK period; now release MASTER_RESET and initialize registers. */
     hc595_dds_control.master_reset = false;
     HC595_ApplyDDSControl();
     HAL_Delay(1);
-    ad9959_diag.master_reset = 0U;
-    ad9959_diag.power_down = hc595_dds_control.power_down ? 1U : 0U;
     ad9959_diag.init_stage = 3U;
 
-    /* Match the validated module's reset sequence exactly: FR1 then FR2 are
-     * the first serial transactions after reset.  The default serial mode is
-     * already one-bit, and channel selection is deferred to the CH1 setup. */
-    const uint8_t fr2[2] = { 0x00U, 0x00U };
+    /* FR1 (PLL) then FR2 (default) — exactly as Template1 init sequence. */
     AD9959_ConfigPLL();
     ad9959_diag.init_stage = 4U;
+    const uint8_t fr2[2] = { 0x00U, 0x00U };
     AD9959_WriteRegister(AD9959_REG_FR2, fr2, sizeof(fr2));
     ad9959_diag.init_stage = 5U;
-
-    /* Validated official sequence: FR2 initial value must settle before the
-     * phase-accumulator clear command and its IO_UPDATE pulse. */
-    HAL_Delay(440);
-    const uint8_t fr2_phase_clear[2] = { 0x20U, 0x00U };
-    AD9959_WriteRegister(AD9959_REG_FR2, fr2_phase_clear,
-                         sizeof(fr2_phase_clear));
-    AD9959_OfficialIOUpdate();
-    HAL_Delay(10);
-    ad9959_diag.init_stage = 6U;
 }
 
 static void AD9959_SetCWMaskDirect(uint8_t csr, uint32_t ftw, uint16_t asf)

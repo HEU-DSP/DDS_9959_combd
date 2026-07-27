@@ -76,6 +76,12 @@ void AD9959_CyclicFTW_OnSpiError(void);
  */
 void AD9959_IOUpdate(void);
 
+/** Temporarily take PC6 as GPIO for init-phase IO_UPDATE. */
+void AD9959_IOUpdateGpioInit(void);
+
+/** Return PC6 to TIM8_CH1 AF after init IO_UPDATE. */
+void AD9959_IOUpdateTimerInit(void);
+
 /** Hold DDS reset high and continuously send a known SPI1 waveform. */
 void AD9959_DebugSpiWaveformTest(void);
 

@@ -63,6 +63,8 @@
 #define FTW_200MHZ 1749801491UL
 /* 100.3 MHz at SYSCLK = 490.909091 MHz: 0x344DF9C8. */
 #define FTW_100P3MHZ 877525448UL
+/* 99.7 MHz at SYSCLK = 490.909091 MHz: 0x33F9C9A7. */
+#define FTW_99P7MHZ  872226471UL
 
 /* ================================================================
  * Phase 1 default baud rate + oversampling (App layer sets these)
