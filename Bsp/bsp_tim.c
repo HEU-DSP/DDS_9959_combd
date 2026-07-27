@@ -12,6 +12,7 @@
  */
 
 #include "bsp_tim.h"
+#include "led_indicator.h"
 
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
@@ -143,7 +144,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    (void)htim;
+    if (htim->Instance == TIM5) {
+        Led_Refresh();
+    }
 }
 
 /* ================================================================

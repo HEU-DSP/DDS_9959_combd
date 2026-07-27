@@ -107,4 +107,12 @@ void HC595_Reset(void);
  */
 void HC595_OutputEnable(bool enable);
 
+/**
+ * @brief  批量更新 Chip1 LED 位（保持 Chip2 DDS 控制不变）
+ * @param  leds : bit0=STBY, bit1=ANALOG, bit2=MODREADY, bit3=CH0,
+ *                bit4=CH1, bit5=CH2, bit6=CH3. 1=亮, 0=灭.
+ * @note   一次 HC595_Write 完成，适合 ISR 调用.
+ */
+void HC595_WriteLEDs(uint8_t leds);
+
 #endif /* __HC595_H__ */

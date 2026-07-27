@@ -199,6 +199,7 @@ static void AD9959_PowerUpSequence(void)
     HC595_Write(0x0000);
     HC595_OutputEnable(false);
     HC595_ClearAll();
+    DWT_Delay(2);
 
     hc595_dds_control.enable_1v8_digital = true;
     hc595_dds_control.enable_1v8_analog  = true;
@@ -214,7 +215,7 @@ static void AD9959_PowerUpSequence(void)
 
     /* Hold reset while the three DDS supplies settle. */
     HC595_OutputEnable(true);
-    HAL_Delay(20);
+    DWT_Delay(0.020);
 }
 
 /* ================================================================

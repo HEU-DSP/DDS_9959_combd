@@ -85,6 +85,7 @@ Middleware/Buffer/pingpong.c \
 App/tx_buffer.c \
 App/mod_config.c \
 App/channel_config.c \
+App/led_indicator.c \
 Middleware/symbol_buffer.c \
 Middleware/Buffer/frame_builder.c \
 Middleware/Modulator/mod_cw.c \

@@ -106,9 +106,9 @@ void HC595_SetBit(uint8_t chip, uint8_t bit)
 {
     if (bit < 1 || bit > 7) return;
     if (chip == 1) {
-        hc595_shadow |=  (1UL << (bit - 1));
+        hc595_shadow |=  (1UL << bit);        /* bit = Q pin (1-7) */
     } else if (chip == 2) {
-        hc595_shadow |=  (1UL << (bit + 8));
+        hc595_shadow |=  (1UL << (bit + 8));  /* bit = Q pin → shadow[15:8] */
     }
     HC595_Write(hc595_shadow);
 }
@@ -117,7 +117,7 @@ void HC595_ClrBit(uint8_t chip, uint8_t bit)
 {
     if (bit < 1 || bit > 7) return;
     if (chip == 1) {
-        hc595_shadow &= ~(1UL << (bit - 1));
+        hc595_shadow &= ~(1UL << bit);
     } else if (chip == 2) {
         hc595_shadow &= ~(1UL << (bit + 8));
     }
@@ -151,6 +151,20 @@ void HC595_Reset(void)
     BSP_GPIO_595_MR_Clr();
     for (volatile int i = 0; i < 10; i++) {}
     BSP_GPIO_595_MR_Set();
+}
+
+void HC595_WriteLEDs(uint8_t leds)
+{
+    uint16_t led_bits = 0U;
+    if (leds & 0x01U) led_bits |= (1U << HC595_CH1_BIT_LEDSTBY);
+    if (leds & 0x02U) led_bits |= (1U << HC595_CH1_BIT_LED_ANALOGREADY);
+    if (leds & 0x04U) led_bits |= (1U << HC595_CH1_BIT_LEDMODREADY);
+    if (leds & 0x08U) led_bits |= (1U << HC595_CH1_BIT_LEDCH0TRANSMIT);
+    if (leds & 0x10U) led_bits |= (1U << HC595_CH1_BIT_LEDCH1TRANSMIT);
+    if (leds & 0x20U) led_bits |= (1U << HC595_CH1_BIT_LEDCH2TRANSMIT);
+    if (leds & 0x40U) led_bits |= (1U << HC595_CH1_BIT_LEDCH3TRANSMIT);
+    hc595_shadow = (hc595_shadow & 0xFF00U) | led_bits;
+    HC595_Write(hc595_shadow);
 }
 
 void HC595_OutputEnable(bool enable)

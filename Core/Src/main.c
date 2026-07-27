@@ -33,6 +33,7 @@
 #include "mod_config.h"
 #include "symbol_buffer.h"
 #include "channel_config.h"
+#include "led_indicator.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -71,6 +72,7 @@ DMA_HandleTypeDef hdma_spi1_tx;
 DMA_HandleTypeDef hdma_spi3_tx;
 
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim15;
 
@@ -106,6 +108,7 @@ static void MX_OPAMP1_Init(void);
 static void MX_OPAMP2_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_LPTIM3_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -260,6 +263,7 @@ int main(void)
   MX_OPAMP2_Init();
   MX_OCTOSPI1_Init();
   MX_LPTIM3_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   /* ---- Init frame timing ---- */
@@ -277,6 +281,10 @@ int main(void)
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
+  /* ── LED system: TIM5 10 Hz ISR drives indicator refresh ── */
+  HAL_TIM_Base_Start_IT(&htim5);
+  leds.stby         = LED_BLINK_1HZ;
+  leds.analog_ready = LED_BLINK_1HZ;
 #if HC595_OUTPUT_SELFTEST
   /* Both 595s: Q0 low, Q1..Q7 high. Hold this state for probing. */
   HC595_Write(HC595_OUTPUT_SELFTEST_WORD);
@@ -289,6 +297,7 @@ int main(void)
   AD9959_DebugSpiWaveformTest();
 #else
   AD9959_Init();
+  leds.analog_ready = LED_ON;          /* DDS powered → ANALOG steady on */
   /* Validated official CH1 test sequence. */
   AD9959_SetCWOfficialChannel(1, FTW_100P3MHZ, 0x3FF);
 #if !AD9959_DIRECT_CW_TEST
@@ -883,6 +892,67 @@ static void MX_TIM4_Init(void)
   /* USER CODE BEGIN TIM4_Init 2 */
 
   /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim5, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+  /* Override CubeMX default: TIM5 @ 128 MHz APB1, 10 Hz period.
+   * ARR = 128 000 000 / 10 - 1 = 12 799 999 (32-bit counter).
+   * Write hardware register directly — Init.Period was already consumed. */
+  TIM5->ARR = 12799999U;
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
