@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "stm32h7xx_hal.h"
 
 /* One-bit serial readback values, retained for inspection in Ozone. */
 typedef struct {
@@ -75,6 +76,10 @@ void AD9959_CyclicFTW_OnSpiError(void);
  * @brief  Trigger one GPIO IO_UPDATE pulse for direct one-bit bring-up.
  */
 void AD9959_IOUpdate(void);
+
+/** Send an already-framed AD9959 write transaction through GPIO bit banging.
+ * The frame must include the register instruction byte. */
+HAL_StatusTypeDef AD9959_SoftwareWriteFrame(const uint8_t *frame, uint8_t size);
 
 /** Hold DDS reset high and continuously send a known SPI1 waveform. */
 void AD9959_DebugSpiWaveformTest(void);

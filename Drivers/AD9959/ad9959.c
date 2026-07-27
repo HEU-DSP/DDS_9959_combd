@@ -312,15 +312,15 @@ static void AD9959_OfficialIOUpdate(void)
 {
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_RESET);
-    //DWT_Delay(4.0e-6f);   /* Official capture: CS rising to IO_UPDATE rising ≈3.8 us. */
+    DWT_Delay(4.0e-6f);   /* Official capture: CS rising to IO_UPDATE rising. */
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_SET);
-    //DWT_Delay(6.4e-6f);
+    DWT_Delay(6.4e-6f);
     HAL_GPIO_WritePin(SYNC_9959_IO_UPDATE_GPIO_Port,
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_RESET);
 }
 
-#if AD9959_SOFTWARE_SPI_TEST
+#if AD9959_SOFTWARE_SPI_TEST || AD9959_PURE_SOFTWARE_TIMER_TEST
 /* Isolated GPIO transport for physical-layer diagnosis.  It deliberately
  * leaves the power, reset, REF_CLK and IO_UPDATE paths unchanged. */
 static void AD9959_SoftwareSpiInit(void)
@@ -381,12 +381,13 @@ void AD9959_Init(void)
     /* Direct one-bit bring-up owns PC6 as GPIO. TIM8 is not used here. */
     AD9959_ConfigureDirectIdlePins();
     AD9959_IOUpdateGpioInit();
-#if AD9959_SOFTWARE_SPI_TEST
+#if AD9959_SOFTWARE_SPI_TEST || AD9959_PURE_SOFTWARE_TIMER_TEST
     AD9959_SoftwareSpiInit();
 #endif
 
     ad9959_hwspi_debug = (AD9959_HardwareSpiDebug){0};
-    ad9959_hwspi_debug.software_spi = AD9959_SOFTWARE_SPI_TEST;
+    ad9959_hwspi_debug.software_spi =
+        (AD9959_SOFTWARE_SPI_TEST || AD9959_PURE_SOFTWARE_TIMER_TEST) ? 1U : 0U;
 
     AD9959_PowerUpSequence();
     ad9959_diag.master_reset = hc595_dds_control.master_reset ? 1U : 0U;
@@ -465,6 +466,17 @@ void AD9959_IOUpdate(void)
                       SYNC_9959_IO_UPDATE_Pin, GPIO_PIN_RESET);
 }
 
+HAL_StatusTypeDef AD9959_SoftwareWriteFrame(const uint8_t *frame, uint8_t size)
+{
+#if AD9959_SOFTWARE_SPI_TEST || AD9959_PURE_SOFTWARE_TIMER_TEST
+    return AD9959_SoftwareSpiTransmit(frame, size);
+#else
+    (void)frame;
+    (void)size;
+    return HAL_ERROR;
+#endif
+}
+
 void AD9959_DebugSpiWaveformTest(void)
 {
     const uint8_t aa = 0xAAU;
@@ -508,7 +520,7 @@ void AD9959_WriteRegister(uint8_t reg, const uint8_t *data, uint8_t num_bytes)
     uint8_t total = num_bytes + 1;
 
     /* The transport is selected only for the isolated direct-CW test. */
-#if AD9959_SOFTWARE_SPI_TEST
+#if AD9959_SOFTWARE_SPI_TEST || AD9959_PURE_SOFTWARE_TIMER_TEST
     HAL_StatusTypeDef status = AD9959_SoftwareSpiTransmit(frame, total);
 #else
     HAL_StatusTypeDef status = BSP_SPI_TransmitStatus(SPI1, frame, total);

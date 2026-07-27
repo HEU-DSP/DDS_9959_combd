@@ -28,10 +28,17 @@
 /* Bring-up mode: program CH0 CW entirely through the one-bit DIO0 protocol. */
 #define AD9959_DIRECT_CW_TEST  0
 
+/* Full GPIO transport test:
+ * 1 = no hardware SPI/DMA/DMAMUX/LPTIM runtime path. TIM8 update interrupt
+ *     periodically replays the pre-encoded frames through GPIO bit banging.
+ * 0 = use the selected runtime transport below. */
+#define AD9959_PURE_SOFTWARE_TIMER_TEST  1
+#define AD9959_PURE_SOFTWARE_TIMER_HZ    100U
+
 /* Transport selector for the direct-CW test:
  * 0 = validated hardware SPI1 transport (default)
  * 1 = GPIO bit-banged CS/SCLK/DIO0 at a deliberately slow rate. */
-#define AD9959_SOFTWARE_SPI_TEST  0
+#define AD9959_SOFTWARE_SPI_TEST  AD9959_PURE_SOFTWARE_TIMER_TEST
 
 /* Reproduce the official module's per-channel write ordering. */
 #define AD9959_OFFICIAL_PER_CHANNEL_TEST  1

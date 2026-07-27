@@ -16,7 +16,9 @@
  */
 
 #include "dds_encoder.h"
+#include "ad9959.h"
 #include "ad9959_reg.h"
+#include "phase1_config.h"
 #include <string.h>
 
 /* ---- Bit interleave: one raw byte → two 4-bit SPI values ---- */
@@ -63,8 +65,14 @@ void Encoder_WriteStaticRegs(SPI_HandleTypeDef *hspi, uint8_t channel_mask)
             AD9959_REG_CSR & 0x7F,
             CSR_CHANNEL(ch)
         };
+#if AD9959_PURE_SOFTWARE_TIMER_TEST
+        (void)hspi;
+        AD9959_WriteRegister(AD9959_REG_CSR, &csr[1], 1U);
+        AD9959_WriteRegister(AD9959_REG_CFR, &cfr[1], 3U);
+#else
         HAL_SPI_Transmit(hspi, csr, sizeof(csr), HAL_MAX_DELAY);
         HAL_SPI_Transmit(hspi, (uint8_t *)cfr, sizeof(cfr), HAL_MAX_DELAY);
+#endif
     }
 }
 
