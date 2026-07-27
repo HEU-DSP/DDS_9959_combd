@@ -605,10 +605,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     hdma_spi1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     hdma_spi1_tx.Init.Mode = DMA_NORMAL;
     hdma_spi1_tx.Init.Priority = DMA_PRIORITY_HIGH;
-    hdma_spi1_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_spi1_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    hdma_spi1_tx.Init.MemBurst = DMA_MBURST_SINGLE;
-    hdma_spi1_tx.Init.PeriphBurst = DMA_PBURST_SINGLE;
+    hdma_spi1_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
     if (HAL_DMA_Init(&hdma_spi1_tx) != HAL_OK)
     {
       Error_Handler();
@@ -618,7 +615,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
     pSyncConfig.EventEnable = DISABLE;
-    pSyncConfig.RequestNumber = 14;  /* Must match ENCODER_FRAME_BYTES */
+    pSyncConfig.RequestNumber = 14;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi1_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();
@@ -672,10 +669,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     hdma_spi3_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     hdma_spi3_tx.Init.Mode = DMA_NORMAL;
     hdma_spi3_tx.Init.Priority = DMA_PRIORITY_HIGH;
-    hdma_spi3_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_spi3_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    hdma_spi3_tx.Init.MemBurst = DMA_MBURST_SINGLE;
-    hdma_spi3_tx.Init.PeriphBurst = DMA_PBURST_SINGLE;
+    hdma_spi3_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
     if (HAL_DMA_Init(&hdma_spi3_tx) != HAL_OK)
     {
       Error_Handler();
@@ -685,7 +679,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     pSyncConfig.SyncPolarity = HAL_DMAMUX_SYNC_RISING;
     pSyncConfig.SyncEnable = ENABLE;
     pSyncConfig.EventEnable = DISABLE;
-    pSyncConfig.RequestNumber = 14;  /* Must match ENCODER_FRAME_BYTES */
+    pSyncConfig.RequestNumber = 5;
     if (HAL_DMAEx_ConfigMuxSync(&hdma_spi3_tx, &pSyncConfig) != HAL_OK)
     {
       Error_Handler();

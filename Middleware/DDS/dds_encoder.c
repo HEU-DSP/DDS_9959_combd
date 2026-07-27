@@ -32,7 +32,7 @@ static inline uint8_t split_odd(uint8_t b) {
 }
 
 /* ---- Interleave an array of raw bytes into SPI1/SPI3 buffers ---- */
-static void interleave_frames(const uint8_t *raw, uint8_t *spi1,
+static void __attribute__((unused)) interleave_frames(const uint8_t *raw, uint8_t *spi1,
                               uint8_t *spi3, int len)
 {
     for (int i = 0; i < len; i++) {
@@ -54,7 +54,7 @@ int Encoder_FormatCommand(const DDS_Command *cmd,
     /* ── 1. CSR (Channel Select Register): 2 bytes ──
      *    Select target channel + keep 2-bit serial mode.
      *    CSR takes effect immediately (no IO_UPDATE needed). */
-    uint8_t csr_data = CSR_CHANNEL(cmd->profile) | CSR_IO_MODE_2BIT;
+    uint8_t csr_data = CSR_CHANNEL(cmd->profile);
     raw[idx++] = AD9959_REG_CSR & 0x7F;
     raw[idx++] = csr_data;
 
@@ -83,7 +83,8 @@ int Encoder_FormatCommand(const DDS_Command *cmd,
     raw[idx++] =  cmd->pow       & 0xFF;   /* POW[7:0] */
 
     /* ── Bit-interleave into separate SPI1/SPI3 buffers ── */
-    interleave_frames(raw, spi1_frame, spi3_frame, ENCODER_FRAME_BYTES);
+    memcpy(spi1_frame, raw, ENCODER_FRAME_BYTES);
+    memset(spi3_frame, 0, ENCODER_FRAME_BYTES);
 
     return ENCODER_FRAME_BYTES;
 }

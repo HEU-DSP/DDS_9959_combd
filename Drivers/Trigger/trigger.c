@@ -42,8 +42,7 @@ void Trigger_Start(void)
     LPTIM3->CNT = 0;
     __enable_irq();
 
-    BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, trig_cfg.spi3_ping,
-                           trig_cfg.bank_size);
+    BSP_SPI_DMA_Start(SPI1, trig_cfg.spi1_ping, trig_cfg.bank_size);
 
     BSP_LPTIM3_Start(0);
 }
@@ -55,7 +54,15 @@ void Trigger_Stop(void)
 #if AD9959_TIM4_MONITOR_ENABLE
     BSP_TIM4_Stop();
 #endif
-    BSP_SPI_Both_Abort_IT();
+    BSP_SPI_Abort_IT(SPI1);
+}
+
+/* The SPI1 transfer has already completed when this is called from its
+ * callback.  Do not abort it: simply prevent the next LPTIM3/TIM8 event. */
+void Trigger_PauseAtFrameBoundary(void)
+{
+    BSP_LPTIM3_Stop();
+    BSP_TIM8_Stop();
 }
 
 void Trigger_Restart(void)
@@ -64,9 +71,9 @@ void Trigger_Restart(void)
     LPTIM3->CNT = 0;
     __enable_irq();
 
-    FrameBank *active = TxBuf_GetActive();
     ad9959_diag.dma_frame_bytes = tx_bank_bytes;
-    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
+    FrameBank *active = TxBuf_GetActive();
+    BSP_SPI_DMA_Start(SPI1, active->spi1, tx_bank_bytes);
 
 #if AD9959_TIM4_MONITOR_ENABLE
     BSP_TIM4_Start();
@@ -81,7 +88,7 @@ void Trigger_SwapBuffer(void)
     FrameBank *active = TxBuf_GetActive();
     ad9959_diag.dma_frame_bytes = tx_bank_bytes;
 
-    BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
+    BSP_SPI_DMA_Start(SPI1, active->spi1, tx_bank_bytes);
 }
 
 void Trigger_GetCaptureTiming(uint32_t *t_cs_start, uint32_t *t_cs_end)

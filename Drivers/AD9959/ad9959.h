@@ -66,6 +66,10 @@ void AD9959_SetCWOfficialChannel(uint8_t channel, uint32_t ftw, uint16_t asf);
  * mode, then reconfigure SPI1/SPI3 to 4-bit DMA transfers. */
 bool AD9959_Enable2BitSerial(uint8_t channel);
 
+/* Return PC6/PC7 to TIM8_CH1/CH2 after the one-bit GPIO initialization has
+ * finished all of its low-frequency software IO_UPDATE pulses. */
+void AD9959_EnableRuntimeTimerOutputs(void);
+
 void AD9959_CyclicFTW_Start(uint32_t ftw, uint32_t period_ms);
 void AD9959_CyclicFTW_Task(void);
 void AD9959_CyclicFTW_OnSpiTxComplete(void);

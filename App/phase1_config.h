@@ -33,6 +33,19 @@
 #define AD9959_CYCLIC_FTW_DMA_TEST  0
 #define AD9959_CYCLIC_FTW_PERIOD_MS 10U
 
+/* App-layer modulation sweep test.  It only changes mod_cfg[CH1] and feeds
+ * SymbolBuffer; the validated AD9959 init, SPI DMA and timer chain stay as-is.
+ * Watch mod_test_ctrl / mod_test_debug in Ozone. */
+#define AD9959_MOD_TEST_ENABLE   0U
+#define AD9959_MOD_TEST_CHANNEL  1U
+#define AD9959_MOD_TEST_HOLD_MS  3000U
+#define AD9959_DUAL_SPI_ENABLE   0U
+
+/* Fixed compiled mode: Encoder_BuildBank supplies one source symbol while
+ * preparing each next timer-paced DMA frame.  Main loop never supplies data.
+ * 1-bit modes use 0,1,0,1...; 2-bit modes use 0,1,2,3... */
+#define AD9959_STATIC_SYMBOL_SOURCE_ENABLE  1U
+
 /* Read CSR/FR1/CFR/CFTW/ACR back through DIO0 after direct-CW setup.
  * Results are retained in ad9959_onebit_debug for Ozone inspection. */
 #define AD9959_DIRECT_CW_READBACK  0
@@ -50,8 +63,10 @@
  *   10 MHz →  85899346 (0x051EB852)
  *   11 MHz →  94489280 (0x05A1CAC0)
  * ================================================================ */
-#define FTW_10MHZ  87490075UL
-#define FTW_11MHZ  96239082UL
+#define FTW_10MHZ   79536431UL
+#define FTW_11MHZ  87490075UL
+#define FTW_5KHZ  39768UL
+#define FTW_100KHZ 795360UL  
 /* 200 MHz at SYSCLK = 490.909091 MHz: 0x684BDA13. */
 #define FTW_200MHZ 1749801491UL
 /* 100.3 MHz at SYSCLK = 490.909091 MHz: 0x344DF9C8. */
@@ -65,8 +80,8 @@
  * ================================================================ */
 #define P1_BAUD_RATE            100000U   /* validated DMA sample rate          */
 #define P1_SAMPLES_PER_SYM      1U        /* No oversampling for CW/FSK/ASK     */
-#define P1_CH1_DELAY            200U      /* TIM8 CH1 initial delay ticks       */
-#define P1_CH2_DELAY            210U      /* TIM8 CH2 initial delay ticks       */
+#define P1_CH1_DELAY            600U      /* tested IO_UPDATE delay after SPI   */
+#define P1_CH2_DELAY            630U      /* TIM8 CH2 initial delay ticks       */
 
 /* TIM4 is a measurement-only CS capture path in phase 1.  Enable only when:
  *   PA15 (AD9959 CS) -> PB6 (TIM4_CH1) and PB7 (TIM4_CH2)

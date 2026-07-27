@@ -1,16 +1,57 @@
 
 
-OpenDocument="main.c", FilePath="C:/Users/Shuchen Tao/Documents/DDS_9959_combd/Core/Src/main.c", Line=0
+
+Breakpoint=D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Core/Src/main.c:197:13, State=BP_STATE_DISABLED
+Breakpoint=D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Core/Src/main.c:207:1, State=BP_STATE_DISABLED
+Breakpoint=D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Core/Src/main.c:352:7, State=BP_STATE_DISABLED
+OpenDocument="mod_test.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/App/mod_test.c", Line=231
+OpenDocument="channel_config.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/App/channel_config.c", Line=15
+OpenDocument="stm32h7xx_hal.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c", Line=324
+OpenDocument="main.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Core/Src/main.c", Line=222
+OpenDocument="stm32h7xx_hal_spi.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c", Line=3449
+OpenDocument="stm32h7xx_hal_dma.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c", Line=1353
+OpenDocument="stm32h7xx_it.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Core/Src/stm32h7xx_it.c", Line=237
+OpenDocument="ad9959.h", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Drivers/AD9959/ad9959.h", Line=0
+OpenDocument="frame_builder.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Middleware/Buffer/frame_builder.c", Line=0
+OpenDocument="bsp_spi.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Bsp/bsp_spi.c", Line=33
+OpenDocument="debug_state.h", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/App/debug_state.h", Line=10
+OpenDocument="mod_config.h", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/App/mod_config.h", Line=104
+OpenDocument="dds_encoder.c", FilePath="D:/0_Box/0_Undergraduate/EE/01_Development/DDS_9959_combd/Middleware/DDS/dds_encoder.c", Line=8
 OpenToolbar="Debug", Floating=0, x=0, y=0
-OpenWindow="Source Files", DockArea=LEFT, x=0, y=0, w=818, h=1187, TabPos=0, TopOfStack=0, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Watched Data 1", DockArea=LEFT, x=0, y=0, w=818, h=1187, TabPos=1, TopOfStack=1, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Data Sampling", DockArea=RIGHT, x=0, y=1, w=783, h=505, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
-OpenWindow="Timeline", DockArea=RIGHT, x=0, y=0, w=783, h=700, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=1, CodePaneShown=1, PinCursor="Cursor Movable", TimePerDiv="1 ns / Div", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="556;0", DataGraphShowNamesAtCursor=0, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=1, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="556;-69", CodeGraphLegendShown=1, CodeGraphLegendPosition="572;0"
-OpenWindow="Console", DockArea=BOTTOM, x=0, y=0, w=2560, h=215, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Registers 1", DockArea=RIGHT, x=0, y=0, w=909, h=151, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, FilteredItems=[], RefreshRate=1
+OpenWindow="Source Files", DockArea=LEFT, x=0, y=0, w=797, h=1141, TabPos=1, TopOfStack=0, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=1, w=909, h=125, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Watched Data 1", DockArea=LEFT, x=0, y=0, w=797, h=1141, TabPos=0, TopOfStack=1, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Data Sampling", DockArea=RIGHT, x=0, y=3, w=909, h=273, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
+OpenWindow="Timeline", DockArea=RIGHT, x=0, y=2, w=909, h=608, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="50 ms / Div", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="594;0", DataGraphShowNamesAtCursor=0, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="682;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="632;0"
+OpenWindow="Console", DockArea=BOTTOM, x=0, y=0, w=2560, h=333, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
-TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[232;259;100;227]
-TableHeader="Source Files", SortCol="File", SortOrder="ASCENDING", VisibleCols=["File";"Status";"Size";"#Insts";"Path"], ColWidths=[233;100;100;100;862]
+TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[232;259;100;180]
+TableHeader="Source Files", SortCol="File", SortOrder="ASCENDING", VisibleCols=["File";"Status";"Size";"#Insts";"Path"], ColWidths=[233;100;100;100;958]
 TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time"], ColWidths=[100;100]
 TableHeader="Data Sampling Setup", SortCol="Min. Change", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[254;100;100;100;100;100;110;126;126]
 TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
 TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
+TableHeader="TargetExceptionDialog", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Value";"Address";"Description"], ColWidths=[200;100;100;340]
+TableHeader="Registers 1", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Value";"Description"], ColWidths=[100;144;639]
+WatchedExpression="mod_cfg[0].mode", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_cfg[0].bpsk", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="sym_buf.count", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="sym_buf.ready", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="sym_buf.free", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="tx_bank_bytes", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="tx_active", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="ds.frame_count", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="ds.dma_error_count", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_cfg[0].cw", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_cfg[0].fsk", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_cfg[0].ask", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="ad9959_diag", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="ad9959_timing_debug", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="htim4", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="htim8", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_test_ctrl", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="mod_test_debug", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="tx_bank", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="sym_buf", RefreshRate=5, Window=Watched Data 1
+WatchedExpression="hspi1", RefreshRate=5, Window=Watched Data 1

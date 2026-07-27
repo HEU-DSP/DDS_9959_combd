@@ -36,6 +36,7 @@ typedef struct {
 void Trigger_Init(const Trigger_Config *cfg);
 void Trigger_Start(void);
 void Trigger_Stop(void);
+void Trigger_PauseAtFrameBoundary(void);
 void Trigger_Restart(void);   /* Resume after Stop without full re-init */
 void Trigger_SwapBuffer(void);
 void Trigger_GetCaptureTiming(uint32_t *t_cs_start, uint32_t *t_cs_end);

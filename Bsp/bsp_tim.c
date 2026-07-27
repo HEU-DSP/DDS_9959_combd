@@ -141,9 +141,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     (void)htim;
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim8)
 {
-    (void)htim;
+    
 }
 
 /* ================================================================

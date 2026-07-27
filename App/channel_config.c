@@ -10,10 +10,13 @@
 #include "symbol_buffer.h"
 #include "frame_builder.h"
 #include "dds_encoder.h"
+#include "phase1_config.h"
 #include <string.h>
 
 /* Multi-register full frame: CSR(2) + CFTW(5) + ACR(4) + CPOW(3) = 14 bytes. */
 #define ENCODER_SAFE_FRAME_BYTES  ENCODER_FRAME_BYTES
+
+static uint32_t static_symbol_index = 0U;
 
 typedef struct {
     bool    have_bit;
@@ -286,17 +289,25 @@ bool Encoder_BuildBank(FrameBank *bank, uint16_t *out_bank_bytes)
         return (total > 0U);
     }
 
-    /* Current source for bit/symbol/sample bring-up is SymbolBuffer.
-     * TODO: Route bit modes through BitBuffer, symbol modes through
-     * SymbolBuffer, and AM/FM through SampleBuffer after those queues exist. */
-    if (SymbolBuf_HasData() &&
-        ((FRAME_BUF_SIZE - total) >= ENCODER_SAFE_FRAME_BYTES)) {
+    if ((FRAME_BUF_SIZE - total) >= ENCODER_SAFE_FRAME_BYTES) {
         uint8_t raw_symbol = 0;
         ModInput input;
+#if AD9959_STATIC_SYMBOL_SOURCE_ENABLE
+        /* Encoder_BuildBank is called to prepare exactly one following DMA
+         * frame.  This source is therefore frame/timer paced, not main-loop
+         * paced: 1-bit -> 0,1,...; 2-bit -> 0,1,2,3,... */
+        raw_symbol = (uint8_t)(static_symbol_index++ &
+                               ((1UL << input_bits) - 1UL));
+#else
+        if (!SymbolBuf_HasData()) {
+            *out_bank_bytes = total;
+            return false;
+        }
         if (!SymbolBuf_ReadBits(&raw_symbol, input_bits)) {
             *out_bank_bytes = total;
             return false;
         }
+#endif
         make_mod_input(raw_symbol, input_bits, &input);
 
         (void)append_enabled_channels(bank, &total, &input);

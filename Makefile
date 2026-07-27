@@ -84,6 +84,7 @@ Middleware/DDS/dds_encoder.c \
 Middleware/Buffer/pingpong.c \
 App/tx_buffer.c \
 App/mod_config.c \
+App/mod_test.c \
 App/channel_config.c \
 Middleware/symbol_buffer.c \
 Middleware/Buffer/frame_builder.c \

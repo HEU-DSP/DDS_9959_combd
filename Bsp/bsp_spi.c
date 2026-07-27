@@ -12,6 +12,7 @@
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi3;
 
+
 /* ================================================================
  * Basic SPI Transmit (blocking, for register init)
  * ================================================================ */

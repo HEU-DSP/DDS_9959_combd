@@ -31,6 +31,7 @@
 #include "tx_buffer.h"
 #include "phase1_config.h"
 #include "mod_config.h"
+#include "mod_test.h"
 #include "symbol_buffer.h"
 #include "channel_config.h"
 #include <string.h>
@@ -84,6 +85,18 @@ volatile AD9959_TimingDebug ad9959_timing_debug = {0};
 static volatile bool tx_running = true;
 static volatile bool tx_stop_pending = false;
 static volatile bool tx_error_pending = false;
+static volatile bool tx_mode_switch_pending = false;
+
+#if AD9959_MOD_TEST_ENABLE
+/* Reproduce the previously validated one-bit bring-up path before applying a
+ * new test mode.  This deliberately keeps the DDS in single-wire mode: no
+ * CSR 0x24 and no SPI1/SPI3 4-bit reconfiguration. */
+static void AD9959_ReinitializeValidatedSingleWire(void)
+{
+    AD9959_Init();
+    AD9959_SetCWOfficialChannel(1U, FTW_100P3MHZ, 0x03FFU);
+}
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,10 +142,20 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
         ad9959_diag.spi3_done_count++;
         ad9959_diag.spi3_error = HAL_SPI_GetError(hspi);
     }
-    static int done_count = 0;
-    done_count++;
-    if (done_count >= 2) {
-        done_count = 0;
+    if (hspi->Instance == SPI1) {
+
+#if AD9959_MOD_TEST_ENABLE
+        /* A mode change is committed only between two complete SPI frames.
+         * Stopping here avoids aborting a DMA transfer and therefore must not
+         * enter the normal DMA-error/stop path. */
+        if (ModTest_HasPendingSwitch()) {
+            Trigger_PauseAtFrameBoundary();
+            tx_mode_switch_pending = true;
+            tx_running = false;
+            ad9959_diag.tx_running = 0U;
+            return;
+        }
+#endif
 
         /* ── 锁存本帧 TIM4 捕获值 ── */
         ds.tim4_last_start = ds.tim4_cs_start;
@@ -149,7 +172,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
         ad9959_timing_debug.dio3_ticks = TIM8->CCR2;
         ad9959_timing_debug.safety_margin_ticks = 0U;
         ad9959_timing_debug.spi1_error = ad9959_diag.spi1_error;
-        ad9959_timing_debug.spi3_error = ad9959_diag.spi3_error;
+        ad9959_timing_debug.spi3_error = 0U;
         if ((tim4_status & (TIM_SR_CC1OF | TIM_SR_CC2OF)) != 0U) {
             ad9959_timing_debug.capture_overrun_count++;
         }
@@ -272,8 +295,13 @@ int main(void)
   ModCfg_Disable(1);
   ModCfg_Disable(2);
   ModCfg_Disable(3);
-  ModCfg_SetCW(1, FTW_100P3MHZ, 0x3FF);
+#if AD9959_MOD_TEST_ENABLE
+  ModTest_Init(HAL_GetTick());
+#else
+  ModCfg_SetFSK(1, FTW_100P3MHZ + FTW_5KHZ,
+                 FTW_100P3MHZ, 0x03FFU);
   SymbolBuf_Clear();
+#endif
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
@@ -291,11 +319,18 @@ int main(void)
   AD9959_Init();
   /* Validated official CH1 test sequence. */
   AD9959_SetCWOfficialChannel(1, FTW_100P3MHZ, 0x3FF);
+#if !AD9959_DIRECT_CW_TEST && !AD9959_CYCLIC_FTW_DMA_TEST
+  /* AD9959_Init() temporarily owns PC6/PC7 as GPIO.  Hand them back to
+   * TIM8 only after all official software IO_UPDATE pulses are complete. */
+  AD9959_EnableRuntimeTimerOutputs();
+#endif
 #if !AD9959_DIRECT_CW_TEST
+#if AD9959_DUAL_SPI_ENABLE
   if (!AD9959_Enable2BitSerial(1))
   {
     Error_Handler();
   }
+#endif
 #endif
 #if AD9959_CYCLIC_FTW_DMA_TEST
   AD9959_CyclicFTW_Start(FTW_10MHZ, AD9959_CYCLIC_FTW_PERIOD_MS);
@@ -341,6 +376,27 @@ int main(void)
     /* USER CODE BEGIN 3 */
 #if !AD9959_DIRECT_CW_TEST
       uint32_t now = HAL_GetTick();
+#if AD9959_MOD_TEST_ENABLE
+      ModTest_Task(now);
+#endif
+      if (tx_mode_switch_pending) {
+          tx_mode_switch_pending = false;
+#if AD9959_MOD_TEST_ENABLE
+          if (ModTest_ApplyPendingSwitch()) {
+              AD9959_ReinitializeValidatedSingleWire();
+              if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
+              memcpy(tx_bank[1].spi1, tx_bank[0].spi1, tx_bank_bytes);
+              memcpy(tx_bank[1].spi3, tx_bank[0].spi3, tx_bank_bytes);
+              tx_active = 0U;
+              Trigger_Restart();
+              tx_running = true;
+              ad9959_diag.tx_running = 1U;
+              ad9959_diag.tx_stop_pending = 0U;
+              mod_test_debug.reinit_count++;
+              }
+          }
+#endif
+      }
       if (tx_stop_pending) {
           __disable_irq();
           tx_stop_pending = false;
@@ -351,9 +407,6 @@ int main(void)
 
       if (now - last_tick >= 100) {
           last_tick = now;
-
-          ModCfg_SetCW(1, FTW_100P3MHZ, 0x3FF);
-          SymbolBuf_Clear();
 
           if (!tx_running && AD9959_DMA_AUTO_RESTART) {
               if (Encoder_BuildBank(&tx_bank[0], &tx_bank_bytes)) {
@@ -740,7 +793,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -788,7 +841,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

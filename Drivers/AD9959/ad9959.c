@@ -295,11 +295,13 @@ static void AD9959_IOUpdateGpioInit(void)
 
 /* The single-line setup drives IO_UPDATE as GPIO.  Before the runtime chain
  * starts, hand PC6 back to TIM8_CH1 exactly as CubeMX configured it. */
-static void AD9959_IOUpdateTimerInit(void)
+void AD9959_EnableRuntimeTimerOutputs(void)
 {
     GPIO_InitTypeDef gpio = {0};
 
-    gpio.Pin = SYNC_9959_IO_UPDATE_Pin;
+    /* AD9959_Init() uses PC6 as a GPIO for official low-rate IO_UPDATE and
+     * parks PC7 low.  The realtime chain needs both pins back on TIM8. */
+    gpio.Pin = SYNC_9959_IO_UPDATE_Pin | SPI_9959_DIO3_Pin;
     gpio.Mode = GPIO_MODE_AF_PP;
     gpio.Pull = GPIO_NOPULL;
     gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -616,7 +618,7 @@ bool AD9959_Enable2BitSerial(uint8_t channel)
     if (HAL_SPI_Init(&hspi1) != HAL_OK || HAL_SPI_Init(&hspi3) != HAL_OK) {
         return false;
     }
-    AD9959_IOUpdateTimerInit();
+    AD9959_EnableRuntimeTimerOutputs();
     ad9959_diag.init_stage = 8U;
     return true;
 }
