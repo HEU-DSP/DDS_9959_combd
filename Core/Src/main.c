@@ -33,6 +33,7 @@
 #include "mod_config.h"
 #include "symbol_buffer.h"
 #include "channel_config.h"
+#include "dds_calc.h"
 #include "led_indicator.h"
 #include <string.h>
 /* USER CODE END Includes */
@@ -225,10 +226,10 @@ int main(void)
 
 #if !AD9959_DIRECT_CW_TEST
   /* ---- All 4 channels CW @ 99.7 MHz, full amplitude ---- */
-  ModCfg_SetCW(0, FTW_99P7MHZ, 0x3FF);
-  ModCfg_SetCW(1, FTW_99P7MHZ, 0x3FF);
-  ModCfg_SetCW(2, FTW_99P7MHZ, 0x3FF);
-  ModCfg_SetCW(3, FTW_99P7MHZ, 0x3FF);
+  ModCfg_SetCW(0, DDSCalc_FTW(99700000U), 0x3FF);
+  ModCfg_SetCW(1, DDSCalc_FTW(99700000U), 0x3FF);
+  ModCfg_SetCW(2, DDSCalc_FTW(99700000U), 0x3FF);
+  ModCfg_SetCW(3, DDSCalc_FTW(99700000U), 0x3FF);
   SymbolBuf_Clear();
 
   /* Template1-style: CSR before every data register, all 4 channels,
@@ -237,9 +238,16 @@ int main(void)
   AD9959_IOUpdateGpioInit();    /* borrow PC6 as GPIO */
   {
       const uint8_t cfr[3]  = {0x00, 0x03, 0x00};          /* CFR */
-      const uint8_t cftw[4] = {0x33, 0xF9, 0xC9, 0xA7};    /* 99.7 MHz */
       const uint8_t acr[3]  = {0x00, 0x13, 0xFF};          /* ASF=0x3FF */
       const uint8_t cpow[2] = {0x00, 0x00};                /* phase=0 */
+
+      /* CFTW from DDSCalc — computed at compile time */
+      uint8_t cftw[4];
+      uint32_t ftw = DDSCalc_FTW(99700000U);
+      cftw[0] = (ftw >> 24) & 0xFF;
+      cftw[1] = (ftw >> 16) & 0xFF;
+      cftw[2] = (ftw >> 8)  & 0xFF;
+      cftw[3] =  ftw        & 0xFF;
 
       for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
           const uint8_t csr = CSR_CHANNEL(ch);
@@ -265,7 +273,7 @@ int main(void)
   Encoder_BuildBank();
 
   /* ---- Start TIM8 free-running @ 100 Hz (downgrade mode heartbeat) ---- */
-  BSP_TIM8_StartFreeRun(100U);
+  BSP_TIM8_StartFreeRun(30000U);
   ad9959_diag.tx_running = 1U;
   ad9959_diag.tx_stop_pending = 0U;
 #endif

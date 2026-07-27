@@ -13,6 +13,7 @@
 
 #include "bsp_tim.h"
 #include "led_indicator.h"
+#include "dds_calc.h"
 
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
@@ -107,13 +108,6 @@ void BSP_TIM8_Start(void)
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 }
 
-/* APB2 timer clock from current CubeMX clock tree:
- *   HSE = 25 MHz, PLLM=3, PLLN=135, PLLR=2 → SYSCLK = 562.5 MHz
- *   HCLK = SYSCLK / 2     = 281.25 MHz  (AHB DIV2)
- *   PCLK2 = HCLK / 2      = 140.625 MHz (APB2 DIV2)
- *   APB2 TimClk = 2×PCLK2 = 281.25 MHz  (timer doubler when APB2 presc ≠ 1) */
-#define BSP_APB2_TIM_CLK_HZ  281250000UL
-
 void BSP_TIM8_StartFreeRun(uint32_t freq_hz)
 {
     /* Disable counter before reconfiguration. */
@@ -123,7 +117,7 @@ void BSP_TIM8_StartFreeRun(uint32_t freq_hz)
      * Only adjust period and ensure free-running (no slave mode). */
     TIM8->SMCR = 0U;
     TIM8->PSC  = 0U;
-    uint32_t arr = (BSP_APB2_TIM_CLK_HZ / freq_hz) - 1;
+    uint32_t arr = (DDSCALC_APB2_TIM_HZ / freq_hz) - 1;
     if (arr > 0xFFFFU) arr = 0xFFFFU;
     TIM8->ARR = (uint16_t)arr;
     TIM8->CCR1 = 500U;   /* PWM1: ~18 ns positive pulse for IO_UPDATE */
@@ -160,9 +154,9 @@ void BSP_TIM8_Stop(void)
 
 void BSP_TIM15_SetREFCLK(uint32_t freq_hz)
 {
-    /* Round to the nearest integer divider. For a 25 MHz request this
-     * selects /11, so TIM15 CH1 is 270 / 11 = 24.545 MHz (ARR = 10). */
-    uint32_t divider = (270000000UL + (freq_hz / 2UL)) / freq_hz;
+    /* Round to the nearest integer divider.  For 25 MHz with
+     * APB2 Timer = 281.25 MHz → divider = 11 → 25.57 MHz. */
+    uint32_t divider = (DDSCALC_APB2_TIM_HZ + (freq_hz / 2UL)) / freq_hz;
     if (divider < 2UL) divider = 2UL;
     uint32_t arr = divider - 1UL;
     __HAL_TIM_SET_AUTORELOAD(&htim15, arr);

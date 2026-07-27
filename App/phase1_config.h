@@ -12,11 +12,12 @@
 
 #include "mod_fsk.h"
 #include "mod_ask.h"
+#include "dds_calc.h"
 
 /* ================================================================
- * AD9959 System Clock
+ * AD9959 System Clock — delegated to DDSCALC_AD9959_SYSCLK_HZ
  * ================================================================ */
-#define AD9959_SYSCLK_HZ   490909091UL   /* 24.545 MHz REF_CLK x20 */
+#define AD9959_SYSCLK_HZ   DDSCALC_AD9959_SYSCLK_HZ
 
 /* ================================================================
  * Transport mode

@@ -21,11 +21,16 @@ typedef struct {
 } DDS_Command;
 
 /**
- * @brief  Calculate Frequency Tuning Word from Hz
+ * @brief  Calculate Frequency Tuning Word from Hz (DEPRECATED).
+ *
+ * Use DDSCalc_FTW(freq_hz) instead — integer-only, no division,
+ * and uses the correct AD9959 SYSCLK derived from the clock tree.
+ *
  * @param  freq_hz   : desired output frequency in Hz
  * @param  sysclk_hz : AD9959 SYSCLK in Hz (e.g. 500000000)
  * @return 32-bit FTW
  */
+__attribute__((deprecated("Use DDSCalc_FTW(freq_hz) instead")))
 static inline uint32_t DDS_CalcFTW(uint32_t freq_hz, uint32_t sysclk_hz)
 {
     return (uint32_t)((double)freq_hz / sysclk_hz * (1ULL << 32));
