@@ -25,16 +25,16 @@
 /**
  * @brief  Pre-encoded data-register byte arrays for TIM8 ISR replay.
  *
- * Only the per-symbol-variable registers (CFTW, ACR, CPOW).  The
- * static registers (CSR, CFR) are written once on init / mode change
- * via Encoder_WriteStaticRegs() and never in the ISR.
+ * CSR is included so that every runtime register transaction explicitly
+ * addresses its intended channel.  CFR remains static and is written once
+ * on init / mode change via Encoder_WriteStaticRegs().
  */
 typedef struct {
+    uint8_t csr[2];      /* [inst=0x00, channel-select mask]          */
     uint8_t cftw[5];     /* [inst=0x04, FTW[31:0] MSB-first]         */
     uint8_t acr[4];      /* [inst=0x06, ramp_rate=0, AMP_MULT, ASF]  */
     uint8_t cpow[3];     /* [inst=0x05, POW[15:0] MSB-first]         */
 } DDS_EncodedFrame;
-
 /**
  * @brief  Write static registers (CSR + CFR) for enabled channels.
  *

@@ -35,6 +35,10 @@
 #include "channel_config.h"
 #include "dds_calc.h"
 #include "led_indicator.h"
+#include "bsp_uart_rx.h"
+#include "host_protocol.h"
+#include "dds_control.h"
+#include "symbol_source.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -123,10 +127,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * every period update.  SPI data sent here is applied by the
          * NEXT period's IO_UPDATE (one-sample pipeline, transparent
          * for CW and all modulations). */
+    if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
+        uint8_t ib = 1U;
+        for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
+            if (!mod_cfg[ch].enabled) continue;
+            uint8_t b;
+            switch (mod_cfg[ch].mode) {
+            case CH_MODE_CW:   continue;
+            case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
+            default:           b = 1U; break;
+            }
+            if (b > ib) ib = b;
+        }
+        SymbolSource_Generate(ib);
+    }
+    (void)Encoder_BuildBank();
+
         for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
             if (!(pre_encoded_mask & (1U << ch))) continue;
 
             const DDS_EncodedFrame *f = &pre_encoded[ch];
+            /* Each AD9959 register command is an independent CS frame.
+             * Select this channel immediately before its variable data. */
+            HAL_SPI_Transmit(&hspi1, (uint8_t *)f->csr,  sizeof(f->csr),  HAL_MAX_DELAY);
             HAL_SPI_Transmit(&hspi1, (uint8_t *)f->cftw, sizeof(f->cftw), HAL_MAX_DELAY);
             HAL_SPI_Transmit(&hspi1, (uint8_t *)f->acr,  sizeof(f->acr),  HAL_MAX_DELAY);
             HAL_SPI_Transmit(&hspi1, (uint8_t *)f->cpow, sizeof(f->cpow), HAL_MAX_DELAY);
@@ -276,6 +299,10 @@ int main(void)
   BSP_TIM8_StartFreeRun(30000U);
   ad9959_diag.tx_running = 1U;
   ad9959_diag.tx_stop_pending = 0U;
+
+  /* ---- Host protocol: USART1 RX DMA + IDLE ---- */
+  BSP_UartRx_Init(&huart1);
+  HostProtocol_Init();
 #endif
   /* USER CODE END 2 */
 
@@ -289,6 +316,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    HostProtocol_Task();
+    DDSControl_Task();
+
 #if !AD9959_DIRECT_CW_TEST
       uint32_t now = HAL_GetTick();
       if (now - last_tick >= 100) {

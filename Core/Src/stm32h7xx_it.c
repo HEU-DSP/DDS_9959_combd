@@ -22,6 +22,7 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "bsp_uart_rx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +59,7 @@
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim8;
 /* USER CODE BEGIN EV */
-
+extern UART_HandleTypeDef huart1;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -229,5 +230,25 @@ void TIM5_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+  * @brief This function handles USART1 global interrupt (IDLE detection).
+  */
+void USART1_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&huart1);
+  if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE)) {
+    __HAL_UART_CLEAR_IDLEFLAG(&huart1);
+    BSP_UartRx_IdleISR();
+  }
+}
+
+/**
+  * @brief This function handles DMA1 Stream 0 interrupt.
+  */
+extern DMA_HandleTypeDef hdma_usart1_rx;
+void DMA1_Stream0_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_usart1_rx);
+}
 
 /* USER CODE END 1 */

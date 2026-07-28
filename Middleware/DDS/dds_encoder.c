@@ -110,6 +110,14 @@ void Encoder_WriteStaticRegs(uint8_t channel_mask)
 
 void Encoder_Encode1Bit(const DDS_Command *cmd, DDS_EncodedFrame *frame)
 {
+    
+    /* CSR must precede every channel's data registers.  The AD9959 retains
+     * the last CSR selection, so omitting this would send all later frames
+     * to whichever channel happened to be configured last at startup. */
+    frame->csr[0] = AD9959_REG_CSR & 0x7FU;
+    frame->csr[1] = CSR_CHANNEL(cmd->profile);
+
+    
     /* ── CFTW: 5 bytes ── */
     frame->cftw[0] = AD9959_REG_CFTW & 0x7F;
     frame->cftw[1] = (cmd->ftw >> 24) & 0xFF;
