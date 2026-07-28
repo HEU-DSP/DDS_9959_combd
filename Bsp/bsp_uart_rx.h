@@ -29,4 +29,7 @@ bool BSP_UartRx_ReadByte(uint8_t *byte);
 void BSP_UartRx_Flush(void);
 uint16_t BSP_UartRx_Count(void);
 
+/** Ozone-observable: [0]=RxState [1]=RxXferCount [2]=DMA_NDTR [3]=restart_ret [4]=USART1_CR3 [5]=callbacks */
+extern volatile uint32_t uart_rx_diag[6];
+
 #endif /* __BSP_UART_RX_H__ */

@@ -28,8 +28,10 @@
 #define HOST_SOF1          0xA5U
 #define HOST_SOF2          0x5AU
 #define HOST_VER           0x01U
-#define HOST_FRAME_MIN     8U      /* SOF1..CRC16_L excl payload */
-#define HOST_FRAME_MAX     74U     /* SOF1..CRC16_H incl 64B payload */
+#define HOST_HEADER_SIZE   7U      /* SOF1 SOF2 VER SEQ CMD LEN_L LEN_H */
+#define HOST_CRC_SIZE      2U
+#define HOST_FRAME_MIN     (HOST_HEADER_SIZE + HOST_CRC_SIZE)
+#define HOST_FRAME_MAX     (HOST_FRAME_MIN + HOST_PAYLOAD_MAX)
 #define HOST_PAYLOAD_MAX   64U
 #define HOST_RX_BUF_SIZE   128U
 
@@ -69,6 +71,45 @@ typedef enum {
     HOST_SYNC_READ_CRC2,
     HOST_SYNC_DONE,
 } HostSyncState;
+
+/*
+ * Ozone-friendly host/parameter snapshot.
+ * `active[]` is the configuration currently used by the DDS stream;
+ * `pending[]` is the next complete four-channel configuration awaiting APPLY.
+ * This object is diagnostic only and is never read by the timing chain.
+ */
+typedef struct {
+    uint32_t rx_frame_count;
+    uint32_t valid_frame_count;
+    uint32_t crc_error_count;
+    uint32_t reply_count;
+    uint32_t nack_count;
+
+    uint8_t  parser_state;
+    uint8_t  last_rx_ver;
+    uint8_t  last_rx_seq;
+    uint8_t  last_rx_cmd;
+    uint16_t last_rx_len;
+    uint16_t last_crc_expected;
+    uint16_t last_crc_received;
+
+    uint8_t  last_reply_cmd;
+    uint8_t  last_nack_reason;
+    uint16_t last_reply_len;
+    uint32_t last_tx_hal_status;
+
+    uint16_t rx_ring_count;
+    uint16_t symbol_count;
+    uint8_t  symbol_ready;
+    uint8_t  symbol_free;
+    uint8_t  symbol_bits_per_sym;
+    uint8_t  pending_cfg_has_data;
+
+    ChannelModConfig active[DDS_CHANNEL_COUNT];
+    ChannelModConfig pending[DDS_CHANNEL_COUNT];
+} HostProtocolDebug;
+
+extern volatile HostProtocolDebug host_protocol_debug;
 
 /* ---- API ---- */
 

@@ -59,7 +59,7 @@
 #define DDSCALC_REFCLK_HZ        (DDSCALC_APB2_TIM_HZ / DDSCALC_REFCLK_DIV)
 
 /* AD9959 内部 SYSCLK */
-#define DDSCALC_AD9959_SYSCLK_HZ  (DDSCALC_REFCLK_HZ * DDSCALC_AD9959_PLL)
+#define DDSCALC_AD9959_SYSCLK_HZ  UINT64_C(490909091)
 
 /* ================================================================
  * Q32 定点缩放因子 — FTW = (freq_hz × SCALE) >> 32
@@ -69,7 +69,6 @@
  *   2^64 / 511363636 = 36089050678771 = 0x20D3B4F3A713
  * ================================================================ */
 
-#define DDSCALC_FTW_SCALE  UINT64_C(36089050678771)
 
 /* ================================================================
  * CPOW / ASF 辅助常量
@@ -90,7 +89,9 @@
  */
 static inline uint32_t DDSCalc_FTW(uint32_t freq_hz)
 {
-    return (uint32_t)(((uint64_t)freq_hz * DDSCALC_FTW_SCALE) >> 32);
+    return (uint32_t)((((uint64_t)freq_hz << 32)
+                       + DDSCALC_AD9959_SYSCLK_HZ / 2U)
+                      / DDSCALC_AD9959_SYSCLK_HZ);
 }
 
 /**

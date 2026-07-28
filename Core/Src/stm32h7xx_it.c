@@ -245,10 +245,9 @@ void USART1_IRQHandler(void)
 /**
   * @brief This function handles DMA1 Stream 0 interrupt.
   */
-extern DMA_HandleTypeDef hdma_usart1_rx;
 void DMA1_Stream0_IRQHandler(void)
 {
-  HAL_DMA_IRQHandler(&hdma_usart1_rx);
+  HAL_DMA_IRQHandler(huart1.hdmarx);
 }
 
 /* USER CODE END 1 */

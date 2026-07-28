@@ -128,7 +128,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * NEXT period's IO_UPDATE (one-sample pipeline, transparent
          * for CW and all modulations). */
     if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
-        uint8_t ib = 1U;
+        uint8_t ib = 0U;
         for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
             if (!mod_cfg[ch].enabled) continue;
             uint8_t b;
@@ -295,14 +295,14 @@ int main(void)
   /* ---- Prime first pre-encoded data frames ---- */
   Encoder_BuildBank();
 
-  /* ---- Start TIM8 free-running @ 100 Hz (downgrade mode heartbeat) ---- */
-  BSP_TIM8_StartFreeRun(30000U);
-  ad9959_diag.tx_running = 1U;
-  ad9959_diag.tx_stop_pending = 0U;
-
   /* ---- Host protocol: USART1 RX DMA + IDLE ---- */
   BSP_UartRx_Init(&huart1);
   HostProtocol_Init();
+
+  /* ---- Start TIM8 free-running @ 30 kHz (downgrade mode) ---- */
+  BSP_TIM8_StartFreeRun(10000U);  /* 10 kHz — 100 us period, safe for SPI+UART DMA */
+  ad9959_diag.tx_running = 1U;
+  ad9959_diag.tx_stop_pending = 0U;
 #endif
   /* USER CODE END 2 */
 

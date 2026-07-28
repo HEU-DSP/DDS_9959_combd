@@ -58,6 +58,24 @@ static uint16_t frame_len;
 static uint8_t  rbuf[HOST_FRAME_MAX];
 static uint16_t rbuf_idx;
 
+/* Ozone-visible snapshot.  It is updated only at protocol boundaries, never
+ * from the TIM8 ISR or the UART DMA interrupt. */
+volatile HostProtocolDebug host_protocol_debug = {0};
+static bool debug_snapshot_after_control = false;
+
+static void debug_snapshot(void)
+{
+    memcpy((void *)host_protocol_debug.active, mod_cfg, sizeof(mod_cfg));
+    memcpy((void *)host_protocol_debug.pending, pending_cfg, sizeof(pending_cfg));
+    host_protocol_debug.parser_state = (uint8_t)sync_state;
+    host_protocol_debug.rx_ring_count = BSP_UartRx_Count();
+    host_protocol_debug.symbol_count = SymbolBuf_Count();
+    host_protocol_debug.symbol_ready = sym_buf.ready ? 1U : 0U;
+    host_protocol_debug.symbol_free = sym_buf.free ? 1U : 0U;
+    host_protocol_debug.symbol_bits_per_sym = sym_buf.bits_per_sym;
+    host_protocol_debug.pending_cfg_has_data = pending_cfg_has_data ? 1U : 0U;
+}
+
 /* ================================================================
  * Reply helpers
  * ================================================================ */
@@ -99,8 +117,11 @@ static void reply_send(uint8_t cmd)
     uint16_t crc = crc16_buf(&rbuf[2], rbuf_idx - 2);
     rbuf[rbuf_idx++] = (uint8_t)(crc & 0xFF);
     rbuf[rbuf_idx++] = (uint8_t)((crc >> 8) & 0xFF);
-    HAL_UART_Transmit(&huart1, rbuf, rbuf_idx, HAL_MAX_DELAY);
-    (void)cmd;
+    host_protocol_debug.last_reply_cmd = cmd;
+    host_protocol_debug.last_reply_len = rbuf_idx;
+    host_protocol_debug.last_tx_hal_status =
+        (uint32_t)HAL_UART_Transmit(&huart1, rbuf, rbuf_idx, HAL_MAX_DELAY);
+    host_protocol_debug.reply_count++;
 }
 
 static void reply_ack(uint8_t seq, uint8_t cmd)
@@ -118,6 +139,8 @@ static void reply_ack_u8(uint8_t seq, uint8_t cmd, uint8_t v)
 
 static void reply_nack(uint8_t seq, uint8_t cmd, uint8_t reason)
 {
+    host_protocol_debug.last_nack_reason = reason;
+    host_protocol_debug.nack_count++;
     reply_start(seq, cmd | HOST_FLAG_NACK, 1U);
     reply_add_u8(reason);
     reply_send(cmd);
@@ -321,6 +344,7 @@ static void handle_apply(uint8_t seq)
         return;
     }
     DDSControl_RequestApply();
+    debug_snapshot_after_control = true;
     /* Actual apply runs in DDSControl_Task() in the main loop.
      * Send ACK now — the caller can poll GET_STATUS to confirm. */
     uint8_t mask = 0U;
@@ -337,6 +361,7 @@ static void handle_stop_output(uint8_t seq)
         return;
     }
     DDSControl_RequestStop();
+    debug_snapshot_after_control = true;
     reply_ack(seq, HOST_CMD_STOP_OUTPUT);
 }
 
@@ -347,15 +372,21 @@ static void handle_stop_output(uint8_t seq)
 static void frame_dispatch(void)
 {
     /* Compute CRC over VER..payload-before-CRC */
-    uint16_t expected = crc16_buf(&fbuf[2], (uint16_t)(HOST_FRAME_MIN - 2U + frame_len));
-    uint16_t received = (uint16_t)fbuf[HOST_FRAME_MIN - 2U + frame_len]
-                      | ((uint16_t)fbuf[HOST_FRAME_MIN - 1U + frame_len] << 8);
+    uint16_t expected = crc16_buf(&fbuf[2], (uint16_t)(HOST_HEADER_SIZE - 2U + frame_len));
+    uint16_t received = (uint16_t)fbuf[HOST_HEADER_SIZE + frame_len]
+                      | ((uint16_t)fbuf[HOST_HEADER_SIZE + frame_len + 1U] << 8);
+
+    host_protocol_debug.last_crc_expected = expected;
+    host_protocol_debug.last_crc_received = received;
 
     if (expected != received) {
+        host_protocol_debug.crc_error_count++;
         return;  /* silently drop bad-CRC frames */
     }
 
-    const uint8_t *payload = &fbuf[HOST_FRAME_MIN - 2U];
+    host_protocol_debug.valid_frame_count++;
+
+    const uint8_t *payload = &fbuf[HOST_HEADER_SIZE];
 
     switch (frame_cmd) {
     case HOST_CMD_PING:         handle_ping(frame_seq);          break;
@@ -403,7 +434,7 @@ static void parse_byte(uint8_t byte)
 
     case HOST_SYNC_READ_HEADER:
         fbuf[fbuf_idx++] = byte;
-        if (fbuf_idx >= HOST_FRAME_MIN) {
+        if (fbuf_idx >= HOST_HEADER_SIZE) {
             frame_ver = fbuf[2];
             frame_seq = fbuf[3];
             frame_cmd = fbuf[4];
@@ -422,7 +453,7 @@ static void parse_byte(uint8_t byte)
 
     case HOST_SYNC_READ_PAYLOAD:
         fbuf[fbuf_idx++] = byte;
-        if (fbuf_idx >= (HOST_FRAME_MIN + frame_len)) {
+        if (fbuf_idx >= (HOST_HEADER_SIZE + frame_len)) {
             sync_state = HOST_SYNC_READ_CRC1;
         }
         break;
@@ -453,10 +484,20 @@ void HostProtocol_Init(void)
     fbuf_idx   = 0U;
     pending_cfg_has_data = false;
     memset(pending_cfg, 0, sizeof(pending_cfg));
+    memset((void *)&host_protocol_debug, 0, sizeof(host_protocol_debug));
+    debug_snapshot();
 }
 
 void HostProtocol_Task(void)
 {
+    /* APPLY/STOP are executed by DDSControl_Task after this function returns.
+     * Refresh once on the following main-loop pass to expose the new live
+     * configuration without touching the timing ISR. */
+    if (debug_snapshot_after_control) {
+        debug_snapshot_after_control = false;
+        debug_snapshot();
+    }
+
     /* Consume all bytes from the RX ring buffer */
     while (BSP_UartRx_Available()) {
         uint8_t byte;
@@ -464,9 +505,15 @@ void HostProtocol_Task(void)
         parse_byte(byte);
 
         if (sync_state == HOST_SYNC_DONE) {
+            host_protocol_debug.rx_frame_count++;
+            host_protocol_debug.last_rx_ver = frame_ver;
+            host_protocol_debug.last_rx_seq = frame_seq;
+            host_protocol_debug.last_rx_cmd = frame_cmd;
+            host_protocol_debug.last_rx_len = frame_len;
             frame_dispatch();
             sync_state = HOST_SYNC_WAIT_SOF1;
             fbuf_idx   = 0U;
+            debug_snapshot();
         }
     }
 }
