@@ -3,6 +3,15 @@
  * @file    channel_config.c
  * @brief   Build pre-encoded DDS_EncodedFrame structs from mod_cfg + sym_buf
  ******************************************************************************
+            |
+            \
+        ___  \
+       /   |  >
+       |     /
+       \ ___/
+    
+        ↑一团猫毛
+
  */
 
 #include "channel_config.h"
