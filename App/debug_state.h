@@ -27,6 +27,9 @@ typedef struct {
     /* ---- Counters ---- */
     uint32_t frame_count;        /* 总发送帧数 */
     uint32_t dma_error_count;    /* DMA 错误次数 */
+
+    /* ---- DMA mode handshake (ISR → main loop) ---- */
+    uint8_t  dma_bank_ready;     /* 1 = idle bank refill requested by DMA TC */
 } DebugState;
 
 /* Ozone-only observability for the AD9959 bring-up path.  Recording these

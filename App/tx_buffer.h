@@ -65,7 +65,7 @@ typedef struct {
     uint32_t baud_rate;        /* Symbol rate from App (symbols/sec)     */
     uint32_t samples_per_sym;  /* Oversampling factor (1=CW/FSK, 4=GFSK) */
     uint32_t sample_rate;      /* = baud_rate × samples_per_sym (Hz)     */
-    uint16_t lptim_period;     /* LPTIM1 ARR = 16 MHz / sample_rate - 1  */
+    uint16_t lptim_period;     /* LPTIM3 ARR = 135 MHz / sample_rate - 1  */
 } TxTiming;
 
 extern TxTiming  tx_timing;
@@ -73,12 +73,14 @@ extern TxTiming  tx_timing;
 /**
  * @brief  Compute sample_rate and LPTIM period from baud_rate + oversampling.
  * @note   Call once after App sets baud_rate and samples_per_sym.
- *         LPTIM clock = 128 MHz / 8 = 16 MHz.
+ *         LPTIM3 clock = APB 135 MHz (DIV1, per CubeMX LPTIM345Freq_Value).
+ *         Note: trigger.c computes its own ARR via BSP_LPTIM3_ARRForRate()
+ *         from cfg->sample_rate — this field is informational / legacy.
  */
 static inline void TxTiming_Update(void)
 {
     tx_timing.sample_rate = tx_timing.baud_rate * tx_timing.samples_per_sym;
-    tx_timing.lptim_period = (uint16_t)(16000000UL / tx_timing.sample_rate - 1);
+    tx_timing.lptim_period = (uint16_t)(135000000UL / tx_timing.sample_rate - 1);
 }
 
 #endif /* __TX_BUFFER_H__ */

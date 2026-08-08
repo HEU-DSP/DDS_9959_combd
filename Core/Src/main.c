@@ -39,6 +39,8 @@
 #include "host_protocol.h"
 #include "dds_control.h"
 #include "symbol_source.h"
+#include "trigger.h"
+#include "bsp_dma.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -64,16 +66,21 @@ FDCAN_HandleTypeDef hfdcan1;
 
 FMAC_HandleTypeDef hfmac;
 
+LPTIM_HandleTypeDef hlptim3;
+
 OSPI_HandleTypeDef hospi1;
 
 OPAMP_HandleTypeDef hopamp1;
 OPAMP_HandleTypeDef hopamp2;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_tx;
 
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim15;
+DMA_HandleTypeDef hdma_tim4_up;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -95,6 +102,7 @@ void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_CORDIC_Init(void);
 static void MX_FDCAN1_Init(void);
 static void MX_FMAC_Init(void);
@@ -107,6 +115,8 @@ static void MX_OPAMP1_Init(void);
 static void MX_OPAMP2_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_LPTIM3_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -117,31 +127,34 @@ static void MX_TIM5_Init(void);
 /**
  * @brief  TIM period-elapsed callback — TIM5 (LED) + TIM8 (9959 sync).
  *
- * TIM8 fires at 100 kHz.  Each call replays pre-encoded register frames
- * via single-wire SPI1 and pulses IO_UPDATE.
+ * Downgrade mode: TIM8 free-runs and replays pre-encoded register frames
+ * via blocking single-wire SPI1 at every period.
+ * DMA mode: TIM8 runs in slave-reset/PWM mode with no Update ISR, so the
+ * TIM8 branch below is compiled out entirely.
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+#if AD9959_DOWNGRADE_MODE
     if (htim->Instance == TIM8) {
         /* TIM8 CH1 hardware PWM generates IO_UPDATE automatically at
          * every period update.  SPI data sent here is applied by the
          * NEXT period's IO_UPDATE (one-sample pipeline, transparent
          * for CW and all modulations). */
-    if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
-        uint8_t ib = 0U;
-        for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
-            if (!mod_cfg[ch].enabled) continue;
-            uint8_t b;
-            switch (mod_cfg[ch].mode) {
-            case CH_MODE_CW:   continue;
-            case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
-            default:           b = 1U; break;
+        if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
+            uint8_t ib = 0U;
+            for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
+                if (!mod_cfg[ch].enabled) continue;
+                uint8_t b;
+                switch (mod_cfg[ch].mode) {
+                case CH_MODE_CW:   continue;
+                case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
+                default:           b = 1U; break;
+                }
+                if (b > ib) ib = b;
             }
-            if (b > ib) ib = b;
+            SymbolSource_Generate(ib);
         }
-        SymbolSource_Generate(ib);
-    }
-    (void)Encoder_BuildBank();
+        (void)Encoder_BuildBank();
 
         for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
             if (!(pre_encoded_mask & (1U << ch))) continue;
@@ -159,12 +172,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         ad9959_diag.frame_count = ds.frame_count;
         return;
     }
+#else
+    (void)htim;
+#endif
 
     if (htim->Instance == TIM5) {
         Led_Refresh();
         return;
     }
 }
+
+#if !AD9959_DOWNGRADE_MODE
+/**
+ * @brief  SPI1 DMA transfer-complete callback (DMA mode only).
+ *
+ * Minimal ISR: swap the ping-pong bank, re-arm DMA from the now-active
+ * bank, bump counters and signal the main loop to refill the idle bank.
+ * No encoding, no blocking calls.
+ */
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi->Instance != SPI1) {
+        return;
+    }
+
+    TxBuf_Swap();
+    FrameBank *active = TxBuf_GetActive();
+    if (tx_bank_bytes > 0U) {
+        HAL_SPI_Transmit_DMA(&hspi1, active->spi1, tx_bank_bytes);
+    }
+
+    ds.frame_count++;
+    ad9959_diag.frame_count = ds.frame_count;
+    ad9959_diag.spi1_done_count++;
+
+    /* Ask the main loop to refill the (now idle) bank. */
+    ds.dma_bank_ready = 1U;
+
+    BSP_DMA_NotifyComplete(hspi);
+}
+#endif /* !AD9959_DOWNGRADE_MODE */
 
 /* USER CODE END 0 */
 
@@ -204,6 +251,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CORDIC_Init();
   MX_FDCAN1_Init();
   MX_FMAC_Init();
@@ -216,6 +264,8 @@ int main(void)
   MX_OPAMP2_Init();
   MX_OCTOSPI1_Init();
   MX_TIM5_Init();
+  MX_LPTIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   /* ---- Init frame timing ---- */
@@ -299,16 +349,47 @@ int main(void)
   BSP_UartRx_Init(&huart1);
   HostProtocol_Init();
 
+#if AD9959_DOWNGRADE_MODE
   /* ---- Start TIM8 free-running @ 30 kHz (downgrade mode) ---- */
   BSP_TIM8_StartFreeRun(10000U);  /* 10 kHz — 100 us period, safe for SPI+UART DMA */
   ad9959_diag.tx_running = 1U;
   ad9959_diag.tx_stop_pending = 0U;
+#else
+  /* ================================================================
+   * DMA mode: LPTIM3 → DMAMUX sync → SPI1 DMA → TIM8 ETR chain
+   * ================================================================ */
+
+  /* Build initial bank 0 (zero-copy encode into D2 SRAM). */
+  tx_bank_bytes = Encoder_BuildBank_DMA();
+
+  /* Prime bank 1 as idle (ping-pong pre-fill), then restore bank 0 active. */
+  TxBuf_Swap();
+  tx_bank_bytes = Encoder_BuildBank_DMA();
+  TxBuf_Swap();
+
+  /* ---- Init trigger chain ---- */
+  Trigger_Config tcfg;
+  tcfg.spi1_ping   = tx_bank[0].spi1;
+  tcfg.spi3_ping   = NULL;              /* SPI3 dual-wire deferred */
+  tcfg.spi1_pong   = tx_bank[1].spi1;
+  tcfg.spi3_pong   = NULL;
+  tcfg.bank_size   = tx_bank_bytes;
+  tcfg.sample_rate = tx_timing.sample_rate;
+  tcfg.ch1_delay   = P1_CH1_DELAY;      /* IO_UPDATE delay ticks (calibrate!) */
+  tcfg.ch2_delay   = P1_CH2_DELAY;      /* DIO3 delay ticks             */
+  Trigger_Init(&tcfg);
+
+  /* Arm DMA, then start LPTIM3 — chain begins. */
+  Trigger_Start();
+  ad9959_diag.tx_running = 1U;
+  ad9959_diag.tx_stop_pending = 0U;
+#endif
 #endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-#if !AD9959_DIRECT_CW_TEST
+#if AD9959_DOWNGRADE_MODE && !AD9959_DIRECT_CW_TEST
   uint32_t last_tick = HAL_GetTick();
 #endif
   while (1)
@@ -319,7 +400,7 @@ int main(void)
     HostProtocol_Task();
     DDSControl_Task();
 
-#if !AD9959_DIRECT_CW_TEST
+#if AD9959_DOWNGRADE_MODE
       uint32_t now = HAL_GetTick();
       if (now - last_tick >= 100) {
           last_tick = now;
@@ -335,6 +416,39 @@ int main(void)
               Encoder_BuildBank();
               debug_reload = 0;
           }
+      }
+#else
+      /* DMA mode: refill the idle bank when the DMA TC ISR signals it. */
+      if (ds.dma_bank_ready) {
+          ds.dma_bank_ready = 0U;
+
+          if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
+              uint8_t ib = 0U;
+              for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
+                  if (!mod_cfg[ch].enabled) continue;
+                  uint8_t b;
+                  switch (mod_cfg[ch].mode) {
+                  case CH_MODE_CW:   continue;
+                  case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
+                  default:           b = 1U; break;
+                  }
+                  if (b > ib) ib = b;
+              }
+              SymbolSource_Generate(ib);
+          }
+          /* Zero-copy encode straight into TxBuf_GetIdle()->spi1[] (D2 SRAM). */
+          (void)Encoder_BuildBank_DMA();
+      }
+
+      /* Debugger-driven reload (Ozone debug_reload = 1). */
+      if (debug_reload) {
+          uint8_t mask = 0;
+          for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
+              if (mod_cfg[ch].enabled) mask |= (1U << ch);
+          }
+          Encoder_WriteStaticRegs(mask);
+          (void)Encoder_BuildBank_DMA();
+          debug_reload = 0;
       }
 #endif
   }
@@ -541,6 +655,39 @@ static void MX_FMAC_Init(void)
 }
 
 /**
+  * @brief LPTIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPTIM3_Init(void)
+{
+
+  /* USER CODE BEGIN LPTIM3_Init 0 */
+
+  /* USER CODE END LPTIM3_Init 0 */
+
+  /* USER CODE BEGIN LPTIM3_Init 1 */
+
+  /* USER CODE END LPTIM3_Init 1 */
+  hlptim3.Instance = LPTIM3;
+  hlptim3.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
+  hlptim3.Init.Clock.Prescaler = LPTIM_PRESCALER_DIV1;
+  hlptim3.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
+  hlptim3.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
+  hlptim3.Init.UpdateMode = LPTIM_UPDATE_IMMEDIATE;
+  hlptim3.Init.CounterSource = LPTIM_COUNTERSOURCE_INTERNAL;
+  hlptim3.Init.Input1Source = LPTIM_INPUT1SOURCE_GPIO;
+  if (HAL_LPTIM_Init(&hlptim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPTIM3_Init 2 */
+
+  /* USER CODE END LPTIM3_Init 2 */
+
+}
+
+/**
   * @brief OCTOSPI1 Initialization Function
   * @param None
   * @retval None
@@ -701,7 +848,78 @@ static void MX_SPI1_Init(void)
    * SPI bursts so AD9959 DIO pins never float.  The GPIO pull-down on
    * PD7 is a safety net; AFCNTR is the active fix (CFG2 bit 31). */
   SET_BIT(hspi1.Instance->CFG2, SPI_CFG2_AFCNTR);
+  /* Override CubeMX default NSS_PULSE_ENABLE (= SPI_CFG2_SSOM): NSS pulse
+   * mode re-asserts CS between bytes, which aborts AD9959 multi-byte
+   * register writes (CFTW 5B, ACR 4B).  CS must stay low across the whole
+   * frame — both in DMA mode (whole flat frame) and downgrade mode. */
+  hspi1.Instance->CFG2 &= ~SPI_CFG2_SSOM;
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 0;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 65535;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_RESET;
+  sSlaveConfig.InputTrigger = TIM_TS_ETRF;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_NONINVERTED;
+  sSlaveConfig.TriggerPrescaler = TIM_TRIGGERPRESCALER_DIV1;
+  sSlaveConfig.TriggerFilter = 0;
+  if (HAL_TIM_SlaveConfigSynchro(&htim4, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -779,6 +997,7 @@ static void MX_TIM8_Init(void)
   /* USER CODE END TIM8_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
@@ -803,6 +1022,15 @@ static void MX_TIM8_Init(void)
     Error_Handler();
   }
   if (HAL_TIM_PWM_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_RESET;
+  sSlaveConfig.InputTrigger = TIM_TS_ETRF;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_NONINVERTED;
+  sSlaveConfig.TriggerPrescaler = TIM_TRIGGERPRESCALER_DIV1;
+  sSlaveConfig.TriggerFilter = 0;
+  if (HAL_TIM_SlaveConfigSynchro(&htim8, &sSlaveConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -1023,6 +1251,28 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+  /* DMAMUX1_OVR_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMAMUX1_OVR_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMAMUX1_OVR_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -1085,14 +1335,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF5_SPI3;
   HAL_GPIO_Init(SPI_9959_DIO1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SPI_9959_CS_CAPTURE1_Pin SPI_9959_CS_CAPTURE2_Pin */
-  GPIO_InitStruct.Pin = SPI_9959_CS_CAPTURE1_Pin|SPI_9959_CS_CAPTURE2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF2_TIM4;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SYNC_9959_IO_UPDATE_BP_Pin */
   GPIO_InitStruct.Pin = SYNC_9959_IO_UPDATE_BP_Pin;

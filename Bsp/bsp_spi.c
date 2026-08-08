@@ -9,7 +9,7 @@
 #include "debug_state.h"
 
 /* External HAL handles from CubeMX (main.c).
- * SPI3 removed in downgrade mode — hspi3 no longer exists. */
+ * SPI3 deferred (dual-wire 2-bit mode not yet enabled) — hspi3 not in main.c. */
 extern SPI_HandleTypeDef hspi1;
 
 /* ================================================================
@@ -74,7 +74,7 @@ HAL_StatusTypeDef BSP_SPI_GetState(SPI_TypeDef *spi)
 void BSP_SPI_Both_DMA_Start(const uint8_t *spi1_buf, const uint8_t *spi3_buf,
                             uint16_t size)
 {
-    (void)spi3_buf;  /* SPI3 removed in downgrade mode */
+    (void)spi3_buf;  /* SPI3 future expansion (dual-wire 2-bit mode) */
     ad9959_diag.spi1_buffer_addr = (uint32_t)spi1_buf;
     ad9959_diag.spi3_buffer_addr = 0U;
 

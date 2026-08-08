@@ -141,6 +141,43 @@ void Encoder_Encode1Bit(const DDS_Command *cmd, DDS_EncodedFrame *frame)
     frame->cpow[2] =  cmd->pow       & 0xFF;
 }
 
+void Encoder_Encode1Bit_Direct(const DDS_Command *cmd, uint8_t *flat_buf)
+{
+    uint16_t off = 0;
+
+    /* ── CSR: 2 bytes ── */
+    flat_buf[off + 0] = AD9959_REG_CSR & 0x7FU;
+    flat_buf[off + 1] = CSR_CHANNEL(cmd->profile);
+    off += 2;
+
+    /* ── CFTW: 5 bytes ── */
+    flat_buf[off + 0] = AD9959_REG_CFTW & 0x7F;
+    flat_buf[off + 1] = (cmd->ftw >> 24) & 0xFF;
+    flat_buf[off + 2] = (cmd->ftw >> 16) & 0xFF;
+    flat_buf[off + 3] = (cmd->ftw >> 8)  & 0xFF;
+    flat_buf[off + 4] =  cmd->ftw        & 0xFF;
+    off += 5;
+
+    /* ── ACR: 4 bytes ── */
+    {
+        uint32_t acr = ((uint32_t)(cmd->asf & ACR_ASF_Msk) << ACR_ASF_Pos) |
+                       ACR_AMP_MULT_ENABLE;
+        flat_buf[off + 0] = AD9959_REG_ACR & 0x7F;
+        flat_buf[off + 1] = (acr >> 16) & 0xFF;
+        flat_buf[off + 2] = (acr >> 8)  & 0xFF;
+        flat_buf[off + 3] =  acr        & 0xFF;
+    }
+    off += 4;
+
+    /* ── CPOW: 3 bytes ── */
+    flat_buf[off + 0] = AD9959_REG_CPOW & 0x7F;
+    flat_buf[off + 1] = (cmd->pow >> 8) & 0x3F;
+    flat_buf[off + 2] =  cmd->pow       & 0xFF;
+    off += 3;
+
+    /* off == 14 == ENCODER_FRAME_FLAT_BYTES */
+}
+
 /* ================================================================
  * Public API — 2-bit dual-wire encoder (original)
  * ================================================================ */

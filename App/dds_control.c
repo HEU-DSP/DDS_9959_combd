@@ -14,6 +14,11 @@
 #include "bsp_spi.h"
 #include "channel_config.h"
 #include "symbol_buffer.h"
+#include "tx_buffer.h"
+#include "phase1_config.h"
+#if !AD9959_DOWNGRADE_MODE
+#include "trigger.h"
+#endif
 #include <string.h>
 
 /* ---- External handles ---- */
@@ -23,6 +28,7 @@ extern SPI_HandleTypeDef hspi1;
 /* ---- Forward declarations ---- */
 static uint8_t dds_apply(void);
 static uint8_t dds_stop_output(void);
+static uint8_t dds_apply_config(void);
 
 /* ---- Staging configuration ---- */
 ChannelModConfig pending_cfg[DDS_CHANNEL_COUNT];
@@ -81,32 +87,23 @@ uint8_t DDSControl_Task(void)
 }
 
 /* ================================================================
- * Internal: APPLY safe-switch
+ * Internal: shared config write (both modes)
  * ================================================================ */
 
-static uint8_t dds_apply(void)
+/**
+ * @brief  Copy pending_cfg into mod_cfg[] and write static registers.
+ *
+ * Runs with PC6 already borrowed as GPIO (IO_UPDATE via software).
+ * Shared by downgrade and DMA APPLY paths.
+ *
+ * @return DDS_APPLY_OK on success.
+ */
+static uint8_t dds_apply_config(void)
 {
-    /* 1. Save TIM8 state */
-    uint32_t tim8_arr  = TIM8->ARR;
-    uint32_t tim8_ccr1 = TIM8->CCR1;
-    uint32_t tim8_dier = TIM8->DIER;
-    uint32_t tim8_cr1  = TIM8->CR1;
-
-    /* 2. Disable TIM8 update interrupt */
-    TIM8->DIER &= ~TIM_IT_UPDATE;
-
-    /* 3. Wait for any in-flight ISR to complete + SPI1 idle */
-    for (volatile int i = 0; i < 200; i++) { __NOP(); }
-    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-        /* SPI1 busy — restore and return error */
-        TIM8->DIER = tim8_dier;
-        return DDS_APPLY_ERR_SPI;
-    }
-
-    /* 4. Switch PC6 to GPIO for IO_UPDATE */
+    /* 1. Switch PC6 to GPIO for IO_UPDATE */
     AD9959_IOUpdateGpioInit();
 
-    /* 5. Copy pending_cfg to live mod_cfg[] */
+    /* 2. Copy pending_cfg to live mod_cfg[] */
     uint8_t channel_mask = 0U;
     for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
         if (pending_cfg[ch].enabled) {
@@ -117,10 +114,10 @@ static uint8_t dds_apply(void)
     }
     pending_cfg_has_data = false;
 
-    /* 6. Write CSR + CFR static regs for every enabled channel */
+    /* 3. Write CSR + CFR static regs for every enabled channel */
     Encoder_WriteStaticRegs(channel_mask);
 
-    /* 7. Write initial CFTW for CW channels so output is immediate */
+    /* 4. Write initial CFTW for CW channels so output is immediate */
     for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
         if (!mod_cfg[ch].enabled) continue;
         if (mod_cfg[ch].mode != CH_MODE_CW) continue;
@@ -145,15 +142,44 @@ static uint8_t dds_apply(void)
         AD9959_WriteRegister(AD9959_REG_ACR, buf, 3);
     }
 
-    /* 8. GPIO IO_UPDATE pulse */
+    /* 5. GPIO IO_UPDATE pulse */
     AD9959_IOUpdate();
 
-    /* 9. Rebuild pre_encoded[] for the TIM8 ISR */
+    /* 6. Restore PC6 to TIM8_CH1 AF */
+    AD9959_IOUpdateTimerInit();
+
+    return DDS_APPLY_OK;
+}
+
+/* ================================================================
+ * Internal: APPLY safe-switch
+ * ================================================================ */
+
+#if AD9959_DOWNGRADE_MODE
+static uint8_t dds_apply(void)
+{
+    /* 1. Save TIM8 state */
+    uint32_t tim8_arr  = TIM8->ARR;
+    uint32_t tim8_ccr1 = TIM8->CCR1;
+    uint32_t tim8_dier = TIM8->DIER;
+
+    /* 2. Disable TIM8 update interrupt */
+    TIM8->DIER &= ~TIM_IT_UPDATE;
+
+    /* 3. Wait for any in-flight ISR to complete + SPI1 idle */
+    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+        /* SPI1 busy — restore and return error */
+        TIM8->DIER = tim8_dier;
+        return DDS_APPLY_ERR_SPI;
+    }
+
+    /* 4-9. Copy config + static regs + GPIO IO_UPDATE */
+    (void)dds_apply_config();
+
+    /* 10. Rebuild pre_encoded[] for the TIM8 ISR */
     SymbolBuf_Clear();
     Encoder_BuildBank();
-
-    /* 10. Restore PC6 to TIM8_CH1 AF */
-    AD9959_IOUpdateTimerInit();
 
     /* 11. Restore TIM8 state and re-enable */
     TIM8->ARR  = tim8_arr;
@@ -162,11 +188,42 @@ static uint8_t dds_apply(void)
 
     return DDS_APPLY_OK;
 }
+#else /* DMA mode */
+static uint8_t dds_apply(void)
+{
+    /* 1. Stop the trigger chain (LPTIM3 + TIM8 + DMA abort) */
+    Trigger_Stop();
+
+    /* 2. Wait for any in-flight DMA/SPI activity to settle */
+    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+        /* SPI1 busy — resume the chain and report error */
+        Trigger_Restart();
+        return DDS_APPLY_ERR_SPI;
+    }
+
+    /* 3-8. Copy config + static regs + GPIO IO_UPDATE */
+    (void)dds_apply_config();
+
+    /* 9. Rebuild both ping-pong banks (zero-copy into D2 SRAM) */
+    SymbolBuf_Clear();
+    tx_bank_bytes = Encoder_BuildBank_DMA();
+    TxBuf_Swap();
+    tx_bank_bytes = Encoder_BuildBank_DMA();
+    TxBuf_Swap();
+
+    /* 10. Restart the trigger chain */
+    Trigger_Restart();
+
+    return DDS_APPLY_OK;
+}
+#endif
 
 /* ================================================================
  * Internal: STOP_OUTPUT
  * ================================================================ */
 
+#if AD9959_DOWNGRADE_MODE
 static uint8_t dds_stop_output(void)
 {
     uint32_t tim8_dier = TIM8->DIER;
@@ -192,3 +249,28 @@ static uint8_t dds_stop_output(void)
     TIM8->DIER = tim8_dier;
     return DDS_APPLY_OK;
 }
+#else /* DMA mode */
+static uint8_t dds_stop_output(void)
+{
+    /* Stop the trigger chain — output ceases immediately. */
+    Trigger_Stop();
+
+    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+        Trigger_Restart();
+        return DDS_APPLY_ERR_SPI;
+    }
+
+    /* Disable all channels */
+    for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
+        mod_cfg[ch].enabled = false;
+        mod_cfg[ch].mode    = CH_MODE_OFF;
+    }
+
+    /* Empty banks — no DMA frame until the next APPLY. */
+    SymbolBuf_Clear();
+    tx_bank_bytes = Encoder_BuildBank_DMA();   /* 0 with no channels enabled */
+
+    return DDS_APPLY_OK;
+}
+#endif

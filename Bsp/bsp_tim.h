@@ -11,25 +11,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 
 /* ================================================================
- * TIM2 — DMA Trigger (CH1 PWM)
+ * TIM2 — removed from trigger chain (replaced by LPTIM3 sync).
+ * Old declarations retained for reference in bsp_tim.c only.
  * ================================================================ */
-
-/**
- * @brief  Set TIM2 CH1 PWM frequency (determines DMA trigger rate)
- * @param  freq_hz  : trigger frequency in Hz
- * @note   TIM2 clock = 256 MHz (APB2 timer clock)
- */
-void BSP_TIM2_SetFreq(uint32_t freq_hz);
-
-/**
- * @brief  Start TIM2 PWM output (begins DMA trigger generation)
- */
-void BSP_TIM2_Start(void);
-
-/**
- * @brief  Stop TIM2 PWM output
- */
-void BSP_TIM2_Stop(void);
 
 /* ================================================================
  * TIM4 — CS Timing Capture (CH1/CH2 Input Capture + ETR Reset)
@@ -37,7 +21,7 @@ void BSP_TIM2_Stop(void);
 
 /**
  * @brief  Enable TIM4 input capture (CH1: CS↓, CH2: CS↑)
- * @note   TIM4 CNT is hardware-reset by ETR (connected to TIM2_CH1 via PE0)
+ * @note   TIM4 CNT is hardware-reset by ETR (PE0, fly-wired to LPTIM3_OUT)
  */
 void BSP_TIM4_Start(void);
 
@@ -61,12 +45,12 @@ void BSP_TIM4_GetCaptures(uint32_t *cs_start, uint32_t *cs_end);
  * @brief  Set TIM8 CH compare value (delay from TIM8 reset to pulse output)
  * @param  channel  : TIM_CHANNEL_1 (IO_UPDATE) or TIM_CHANNEL_2 (DIO3)
  * @param  delay_ticks : delay in timer clock ticks
- * @note   TIM8 is reset by TIM2 Update via ITR1 (SlaveMode=RESET)
+ * @note   TIM8 is reset by LPTIM3_OUT via TIM8_ETR (PA0, SlaveMode=RESET)
  */
 void BSP_TIM8_SetDelay(uint8_t channel, uint16_t delay_ticks);
 
 /**
- * @brief  Enable TIM8 output compare channels, ready to receive ITR1 reset
+ * @brief  Enable TIM8 output compare channels, ready to receive ETR reset
  */
 void BSP_TIM8_Start(void);
 
@@ -82,8 +66,8 @@ void BSP_TIM8_Stop(void);
  * the requested frequency, driving single-wire AD9959 register sync.
  *
  * @param  freq_hz  : update interrupt frequency (e.g. 100000 → 100 kHz)
- * @note   TIM8 clock = 256 MHz (APB2), PSC = 0.
- *         ARR = 256 000 000 / freq_hz - 1.
+ * @note   TIM8 clock = 281.25 MHz (APB2), PSC = 0.
+ *         ARR = 281 250 000 / freq_hz - 1.
  *         This overrides the old slave-mode + PWM configuration.
  */
 void BSP_TIM8_StartFreeRun(uint32_t freq_hz);
@@ -109,14 +93,13 @@ void BSP_TIM15_Start(void);
 /* ================================================================
  * LPTIM3 — DMA Sync Gate (OUT signal to DMAMUX)
  *
- * Disabled in downgrade mode.  Guarded by HAL_LPTIM_MODULE_ENABLED.
+ * CubeMX config: APB clock (135 MHz), prescaler DIV1.
+ * LPTIM3_OUT (PA1) → DMAMUX sync gate + TIM8_ETR (PA0) + TIM4_ETR (PE0).
  * ================================================================ */
-
-#ifdef HAL_LPTIM_MODULE_ENABLED
 
 /**
  * @brief  Set LPTIM3 auto-reload period
- * @param  period  : ARR value (LPTIM3 clock = 16 MHz after /8 prescaler)
+ * @param  period  : ARR value (LPTIM3 clock = 135 MHz, DIV1)
  * @note   Period match generates LPTIM3_OUT → DMAMUX sync gate open
  */
 void BSP_LPTIM3_SetPeriod(uint16_t period);
@@ -132,6 +115,11 @@ void BSP_LPTIM3_Start(uint16_t period);
  */
 void BSP_LPTIM3_Stop(void);
 
-#endif /* HAL_LPTIM_MODULE_ENABLED */
+/**
+ * @brief  Compute LPTIM3 ARR from a desired pulse rate (Hz).
+ * @param  rate_hz : desired LPTIM3_OUT pulse rate
+ * @return ARR value (clamped to 16-bit range)
+ */
+uint16_t BSP_LPTIM3_ARRForRate(uint32_t rate_hz);
 
 #endif /* __BSP_TIM_H__ */

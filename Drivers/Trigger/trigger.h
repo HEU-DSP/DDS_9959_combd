@@ -1,19 +1,26 @@
 /**
  ******************************************************************************
  * @file    trigger.h
- * @brief   LPTIM1→DMA→SPI→TIM8 Hardware Trigger Chain
+ * @brief   LPTIM3→DMAMUX→SPI DMA→TIM8 Hardware Trigger Chain
  *
- * Architecture:
- *   LPTIM1_OUT ──→ DMAMUX Sync Gate ──→ SPI1+SPI3 DMA unlock
- *                                    ──→ CS↓ → SCLK → DATA
- *   TIM2 CH1 ↑──→ ETRF reset TIM2 → Update → ITR1 → TIM8 reset
- *              └──→ (飞线 PE0) → TIM4 ETR reset
- *   TIM8 CH1/CH2 → delayed pulse → IO_UPDATE / DIO3
+ * Architecture (DMA mode, AD9959_DOWNGRADE_MODE = 0):
+ *   LPTIM3 (PA1 = OUT, 135 MHz / DIV1)
+ *     |  LPTIM3_OUT periodic pulse
+ *     +──→ DMAMUX Sync Gate ──→ SPI1 TX DMA unlock
+ *     |        (RequestNumber = 14 bytes per pulse = one channel)
+ *     +──→ 飞线 PA0 (TIM8_ETR) ──→ TIM8 hardware reset
+ *     |        +──→ CH1 PWM (PC6) = IO_UPDATE pulse (CCR1 delay)
+ *     |        +──→ CH2 PWM (PC7) = DIO3 pulse (CCR2 delay)
+ *     +──→ 飞线 PE0 (TIM4_ETR) ──→ TIM4 hardware reset
+ *               +──→ CH1 (PB6) = CS↓ capture, CH2 (PB7) = CS↑ capture
  *
- * DMA: one LPTIM1_OUT → gate open → entire bank sent → CS↓→data→CS↑
- *       → TIM8 IO_UPDATE pulse → one TC ISR per bank.
- * LPTIM1 prescaler: /8 → 16 MHz tick
- * TIM2 clock: 256 MHz (APB2)
+ * DMA: one LPTIM3_OUT pulse → gate open → 14 bytes (1 channel) sent;
+ *      the DMA pauses at the next sync boundary until the following pulse.
+ *      Four pulses complete a 4-channel frame (56 bytes) fully in hardware.
+ *      TC ISR then swaps the ping-pong bank and re-arms the DMA.
+ *
+ * TIM2 is no longer part of the chain (removed).
+ * SPI3 (dual-wire 2-bit mode) is deferred; spi3 pointers are unused for now.
  ******************************************************************************
  */
 

@@ -22,6 +22,9 @@
 /** Total bytes per SPI lane in a multi-register full frame. */
 #define ENCODER_FRAME_BYTES  14U
 
+/** Flat (zero-copy DMA) encoding bytes per channel: csr[2] + cftw[5] + acr[4] + cpow[3]. */
+#define ENCODER_FRAME_FLAT_BYTES  14U
+
 /**
  * @brief  Pre-encoded data-register byte arrays for TIM8 ISR replay.
  *
@@ -57,6 +60,20 @@ void Encoder_WriteStaticRegs(uint8_t channel_mask);
  * @param  frame : [out] pre-encoded byte arrays
  */
 void Encoder_Encode1Bit(const DDS_Command *cmd, DDS_EncodedFrame *frame);
+
+/**
+ * @brief  Encode a DDS_Command directly into a flat DMA buffer (zero-copy).
+ *
+ * Register-write logic is identical to Encoder_Encode1Bit(), but the bytes
+ * are written directly into the caller-provided flat_buf[0..13] without an
+ * intermediate DDS_EncodedFrame.  Used by DMA mode: the CPU encodes straight
+ * into the D2-SRAM ping-pong buffer, then DMA sends it — no memcpy.
+ *
+ * @param  cmd      : DDS_Command with all fields populated
+ * @param  flat_buf : destination buffer (>= ENCODER_FRAME_FLAT_BYTES bytes,
+ *                    must reside in DMA-accessible SRAM)
+ */
+void Encoder_Encode1Bit_Direct(const DDS_Command *cmd, uint8_t *flat_buf);
 
 /* ---- 2-bit serial mode (original, kept for reference) ---- */
 

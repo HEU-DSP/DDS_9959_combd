@@ -28,4 +28,12 @@ extern uint8_t pre_encoded_mask;  /* bitmask of channels with valid frames */
  */
 bool Encoder_BuildBank(void);
 
+/**
+ * @brief  DMA mode: encode all active channels directly into the idle
+ *         FrameBank.spi1[] (zero-copy, no DDS_EncodedFrame intermediate).
+ * @return total bytes written into the DMA buffer, 0 if none.
+ * @note   Compiled only when AD9959_DOWNGRADE_MODE == 0.
+ */
+uint16_t Encoder_BuildBank_DMA(void);
+
 #endif /* __CHANNEL_CONFIG_H__ */

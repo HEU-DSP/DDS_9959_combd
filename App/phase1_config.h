@@ -21,8 +21,11 @@
 
 /* ================================================================
  * Transport mode
- *   1 = downgrade: TIM8 periodic ISR + single-wire SPI1 (no DMA)
- *   0 = original:  LPTIM3 → DMA → SPI1+SPI3 → TIM2 → TIM8 chain
+ *   1 = downgrade: TIM8 periodic ISR + blocking single-wire SPI1
+ *   0 = DMA:       LPTIM3 → DMAMUX sync → SPI1 DMA → TIM8 ETR chain
+ *       LPTIM3_OUT (PA1) fly-wired to TIM8_ETR (PA0) + TIM4_ETR (PE0).
+ *       DMAMUX RequestNumber = 14 bytes per pulse (one channel).
+ *       SPI3 (dual-wire 2-bit) deferred to a later phase.
  * ================================================================ */
 #define AD9959_DOWNGRADE_MODE  1
 
@@ -75,8 +78,12 @@
  * ================================================================ */
 #define P1_BAUD_RATE            100000U   /* validated DMA sample rate          */
 #define P1_SAMPLES_PER_SYM      1U        /* No oversampling for CW/FSK/ASK     */
-#define P1_CH1_DELAY            200U      /* TIM8 CH1 initial delay ticks       */
-#define P1_CH2_DELAY            210U      /* TIM8 CH2 initial delay ticks       */
+/* TIM8 CH1/CH2 compare delays (IO_UPDATE / DIO3), initial values.
+ * DMA mode: IO_UPDATE must fire AFTER the SPI burst ends.
+ * One channel burst = 14 bytes × 64 ns = 896 ns ≈ 252 ticks @ 281.25 MHz,
+ * so start at 350 ticks and calibrate via TIM4 CS captures. */
+#define P1_CH1_DELAY            350U      /* TIM8 CH1 initial delay ticks       */
+#define P1_CH2_DELAY            360U      /* TIM8 CH2 initial delay ticks       */
 
 /* TIM4 is a measurement-only CS capture path in phase 1.  Enable only when:
  *   PA15 (AD9959 CS) -> PB6 (TIM4_CH1) and PB7 (TIM4_CH2)
