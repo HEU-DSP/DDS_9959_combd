@@ -12,7 +12,7 @@ FrameBank tx_bank[TX_BANK_COUNT] __attribute__((section(".dma_buffer"), aligned(
 
 /* ---- Flow control ---- */
 volatile uint8_t  tx_active    = 0;
-uint16_t          tx_bank_bytes = 0;
+volatile uint16_t tx_bank_bytes = 0;   /* ISR-read, main-loop-written */
 
 /* ---- Frame timing ---- */
 TxTiming  tx_timing;

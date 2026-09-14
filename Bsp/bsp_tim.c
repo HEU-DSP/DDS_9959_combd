@@ -22,30 +22,8 @@ extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
 extern TIM_HandleTypeDef htim15;
 
-/* ================================================================
- * TIM2 — removed from trigger chain (LPTIM3 replaces it as DMA sync
- * source).  Old code retained for reference only.
- * ================================================================ */
-
-#if 0
-void BSP_TIM2_SetFreq(uint32_t freq_hz)
-{
-    uint32_t arr = (256000000UL / freq_hz) - 1;
-    if (arr < 2) arr = 2;
-    __HAL_TIM_SET_AUTORELOAD(&htim2, arr);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, arr / 2);
-}
-
-void BSP_TIM2_Start(void)
-{
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-}
-
-void BSP_TIM2_Stop(void)
-{
-    HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1);
-}
-#endif /* TIM2 removed */
+/* TIM2 removed from the trigger chain (LPTIM3 replaced it as DMA sync
+ * source); BSP_TIM2_* deleted 2026-08-08. */
 
 /* ================================================================
  * TIM4 — CS Timing Capture
@@ -65,14 +43,9 @@ void BSP_TIM4_Stop(void)
     HAL_TIM_IC_Stop(&htim4, TIM_CHANNEL_2);
 }
 
-void BSP_TIM4_GetCaptures(uint32_t *cs_start, uint32_t *cs_end)
-{
-    if (cs_start) *cs_start = TIM4->CCR1;
-    if (cs_end)   *cs_end   = TIM4->CCR2;
-    __HAL_TIM_CLEAR_FLAG(&htim4,
-                         TIM_FLAG_CC1 | TIM_FLAG_CC2 |
-                         TIM_FLAG_CC1OF | TIM_FLAG_CC2OF);
-}
+/* BSP_TIM4_GetCaptures removed 2026-08-08: the TIM4 capture read-back
+ * chain (Trigger_GetCaptureTiming) had no callers; re-add when the
+ * TIM8 IO_UPDATE delay calibration is implemented. */
 
 /* ================================================================
  * TIM8 — IO_UPDATE + DIO3 Pulse Output

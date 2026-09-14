@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include "mod_config.h"
 #include "dds_encoder.h"
+#include "phase1_config.h"
 
 /** Pre-encoded frames, one per channel, for TIM8 ISR replay. */
 extern DDS_EncodedFrame pre_encoded[DDS_CHANNEL_COUNT];
@@ -28,6 +29,7 @@ extern uint8_t pre_encoded_mask;  /* bitmask of channels with valid frames */
  */
 bool Encoder_BuildBank(void);
 
+#if !AD9959_DOWNGRADE_MODE
 /**
  * @brief  DMA mode: encode all active channels directly into the idle
  *         FrameBank.spi1[] (zero-copy, no DDS_EncodedFrame intermediate).
@@ -35,5 +37,6 @@ bool Encoder_BuildBank(void);
  * @note   Compiled only when AD9959_DOWNGRADE_MODE == 0.
  */
 uint16_t Encoder_BuildBank_DMA(void);
+#endif /* !AD9959_DOWNGRADE_MODE */
 
 #endif /* __CHANNEL_CONFIG_H__ */

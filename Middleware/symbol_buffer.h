@@ -20,7 +20,6 @@ typedef struct {
     uint8_t   data[SYM_BUF_CAPACITY];
     uint16_t  count;          /* Remaining valid symbols */
     uint16_t  read_index;     /* Next symbol index for Middleware read */
-    uint16_t  write_index;    /* Next symbol index for App write */
     uint8_t   bits_per_sym;   /* Bits per symbol (1 for FSK/ASK, 0 for CW) */
     volatile bool ready;      /* App -> Middleware: data available */
     volatile bool free;       /* Middleware -> App: buffer writable */
@@ -30,7 +29,6 @@ extern SymbolBuffer sym_buf;
 
 void SymbolBuf_Clear(void);
 bool SymbolBuf_WriteBits(const uint8_t *bits, uint16_t count);
-bool SymbolBuf_ReadBit(uint8_t *bit);
 bool SymbolBuf_ReadBits(uint8_t *value, uint8_t nbits);
 bool SymbolBuf_HasData(void);
 bool SymbolBuf_IsFree(void);

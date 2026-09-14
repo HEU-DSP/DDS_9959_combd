@@ -71,13 +71,16 @@ void Trigger_Init(const Trigger_Config *cfg)
 
 void Trigger_Start(void)
 {
-    ad9959_diag.dma_frame_bytes = trig_cfg.bank_size;
+    /* Boot path: arm the DMA from tx_bank[0] with the live byte count.
+     * tx_bank_bytes (not trig_cfg.bank_size) is the source of truth —
+     * the cached copy goes stale after any APPLY that changes the
+     * active channel count. */
+    ad9959_diag.dma_frame_bytes = tx_bank_bytes;
     __disable_irq();
     LPTIM3->CNT = 0;
     __enable_irq();
 
-    BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, trig_cfg.spi3_ping,
-                           trig_cfg.bank_size);
+    BSP_SPI_Both_DMA_Start(trig_cfg.spi1_ping, NULL, tx_bank_bytes);
 
     BSP_LPTIM3_Start(0);
 }
@@ -118,7 +121,6 @@ void Trigger_SwapBuffer(void)
     BSP_SPI_Both_DMA_Start(active->spi1, active->spi3, tx_bank_bytes);
 }
 
-void Trigger_GetCaptureTiming(uint32_t *t_cs_start, uint32_t *t_cs_end)
-{
-    BSP_TIM4_GetCaptures(t_cs_start, t_cs_end);
-}
+/* Trigger_GetCaptureTiming removed 2026-08-08: the TIM4 capture read-back
+ * chain had no callers; re-add when TIM8 IO_UPDATE delay calibration is
+ * implemented. */

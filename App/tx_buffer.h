@@ -30,8 +30,8 @@ typedef struct {
 
 /* ---- Static array: tx_bank[0] = ping, tx_bank[1] = pong ---- */
 extern FrameBank  tx_bank[TX_BANK_COUNT];
-extern volatile uint8_t  tx_active;  /* bank DMA is reading (0 or 1) */
-extern uint16_t  tx_bank_bytes;      /* total bytes per bank (N frames) */
+extern volatile uint8_t  tx_active;   /* bank DMA is reading (0 or 1) */
+extern volatile uint16_t tx_bank_bytes; /* bytes per bank — ISR-read, main-written */
 
 /**
  * @brief  Return pointer to the idle bank (ready for CPU fill).
@@ -65,22 +65,19 @@ typedef struct {
     uint32_t baud_rate;        /* Symbol rate from App (symbols/sec)     */
     uint32_t samples_per_sym;  /* Oversampling factor (1=CW/FSK, 4=GFSK) */
     uint32_t sample_rate;      /* = baud_rate × samples_per_sym (Hz)     */
-    uint16_t lptim_period;     /* LPTIM3 ARR = 135 MHz / sample_rate - 1  */
 } TxTiming;
 
 extern TxTiming  tx_timing;
 
 /**
- * @brief  Compute sample_rate and LPTIM period from baud_rate + oversampling.
+ * @brief  Compute sample_rate from baud_rate + oversampling.
  * @note   Call once after App sets baud_rate and samples_per_sym.
- *         LPTIM3 clock = APB 135 MHz (DIV1, per CubeMX LPTIM345Freq_Value).
- *         Note: trigger.c computes its own ARR via BSP_LPTIM3_ARRForRate()
- *         from cfg->sample_rate — this field is informational / legacy.
+ *         The LPTIM3 ARR is computed separately in trigger.c via
+ *         BSP_LPTIM3_ARRForRate(cfg->sample_rate).
  */
 static inline void TxTiming_Update(void)
 {
     tx_timing.sample_rate = tx_timing.baud_rate * tx_timing.samples_per_sym;
-    tx_timing.lptim_period = (uint16_t)(135000000UL / tx_timing.sample_rate - 1);
 }
 
 #endif /* __TX_BUFFER_H__ */

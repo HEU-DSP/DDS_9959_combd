@@ -112,13 +112,15 @@ static bool build_channel_command(uint8_t ch, const ModInput *input,
     case CH_MODE_GFSK:
         if (!input->have_bit) return false;
         {
-            /* Simple 1st-order Gaussian filter on the frequency deviation. */
-            int32_t target = input->bit ? mod_cfg[ch].gfsk.deviation_ftw
-                                        : -mod_cfg[ch].gfsk.deviation_ftw;
-            int32_t state  = mod_cfg[ch].gfsk.filter_state;
+            /* Simple 1st-order Gaussian filter on the frequency deviation.
+             * int64 intermediate — deviation_ftw×3 overflows int32 for
+             * deviations above 2^30. */
+            int64_t target = input->bit ? (int64_t)mod_cfg[ch].gfsk.deviation_ftw
+                                        : -(int64_t)mod_cfg[ch].gfsk.deviation_ftw;
+            int64_t state  = mod_cfg[ch].gfsk.filter_state;
             state = (state * 3 + target) / 4;   /* α = ¼  */
-            mod_cfg[ch].gfsk.filter_state = state;
-            cmd->ftw = (uint32_t)((int32_t)mod_cfg[ch].gfsk.center_ftw + state);
+            mod_cfg[ch].gfsk.filter_state = (int32_t)state;
+            cmd->ftw = (uint32_t)((int32_t)mod_cfg[ch].gfsk.center_ftw + (int32_t)state);
             cmd->asf = mod_cfg[ch].gfsk.asf;
         }
         break;
@@ -128,10 +130,11 @@ static bool build_channel_command(uint8_t ch, const ModInput *input,
         {
             mod_cfg[ch].msk.phase_acc += mod_cfg[ch].msk.phase_step;
             uint16_t phi = mod_cfg[ch].msk.phase_acc & 0x3FFFU;
-            /* Continuous-phase binary FSK at h=0.5: phase wraps through 0–2π. */
-            int32_t dftw = mod_cfg[ch].msk.deviation_ftw;
-            int32_t cos_val = (int32_t)((phi < 0x2000U) ? (0x2000U - phi)
-                                                        : (phi - 0x2000U));
+            /* Continuous-phase binary FSK at h=0.5: phase wraps through 0–2π.
+             * int64 intermediate — dftw×cos_val overflows int32. */
+            int64_t dftw = mod_cfg[ch].msk.deviation_ftw;
+            int64_t cos_val = (phi < 0x2000U) ? (0x2000U - phi)
+                                              : (phi - 0x2000U);
             cmd->ftw = (uint32_t)((int32_t)mod_cfg[ch].msk.center_ftw
                                   + (dftw * cos_val) / 0x2000);
             cmd->asf = mod_cfg[ch].msk.asf;
@@ -174,9 +177,10 @@ static bool build_channel_command(uint8_t ch, const ModInput *input,
 
     case CH_MODE_FM:
         if (!input->have_sample) return false;
+        /* int64 intermediate — deviation×sample overflows int32 (max 2^47). */
         cmd->ftw = (uint32_t)((int32_t)mod_cfg[ch].fm.center_ftw
-                   + (int32_t)(mod_cfg[ch].fm.deviation_ftw)
-                   * input->sample / 32767);
+                   + ((int64_t)(int32_t)mod_cfg[ch].fm.deviation_ftw
+                      * input->sample / 32767));
         cmd->asf = mod_cfg[ch].fm.asf;
         break;
 

@@ -82,7 +82,6 @@ Drivers/AD9959/ad9959.c \
 Drivers/595/hc595.c \
 Drivers/Trigger/trigger.c \
 Middleware/DDS/dds_encoder.c \
-Middleware/Buffer/pingpong.c \
 Middleware/Symbol/symbol_source.c \
 App/tx_buffer.c \
 App/mod_config.c \
@@ -90,18 +89,7 @@ App/channel_config.c \
 App/host_protocol.c \
 App/dds_control.c \
 App/led_indicator.c \
-Middleware/symbol_buffer.c \
-Middleware/Buffer/frame_builder.c \
-Middleware/Modulator/mod_cw.c \
-Middleware/Modulator/mod_fsk.c \
-Middleware/Modulator/mod_ask.c \
-Middleware/Modulator/mod_gfsk.c \
-Middleware/Modulator/mod_msk.c \
-Middleware/Modulator/mod_qpsk.c \
-Middleware/Modulator/mod_am.c \
-Middleware/Modulator/mod_fm.c \
-Middleware/Modulator/mod_bpsk.c \
-Middleware/Modulator/mod_4fsk.c
+Middleware/symbol_buffer.c
 
 
 

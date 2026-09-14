@@ -6,7 +6,6 @@ void SymbolBuf_Clear(void)
 {
     sym_buf.count = 0;
     sym_buf.read_index = 0;
-    sym_buf.write_index = 0;
     sym_buf.bits_per_sym = 1U;
     sym_buf.ready = false;
     sym_buf.free = true;
@@ -30,16 +29,10 @@ bool SymbolBuf_WriteBits(const uint8_t *bits, uint16_t count)
 
     sym_buf.count = count;
     sym_buf.read_index = 0;
-    sym_buf.write_index = count;
     sym_buf.bits_per_sym = 1U;
     sym_buf.ready = true;
     sym_buf.free = false;
     return true;
-}
-
-bool SymbolBuf_ReadBit(uint8_t *bit)
-{
-    return SymbolBuf_ReadBits(bit, 1U);
 }
 
 bool SymbolBuf_ReadBits(uint8_t *value, uint8_t nbits)
@@ -62,7 +55,6 @@ bool SymbolBuf_ReadBits(uint8_t *value, uint8_t nbits)
         sym_buf.ready = false;
         sym_buf.free = true;
         sym_buf.read_index = 0;
-        sym_buf.write_index = 0;
     }
 
     return true;

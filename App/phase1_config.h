@@ -10,8 +10,6 @@
 #ifndef __PHASE1_CONFIG_H__
 #define __PHASE1_CONFIG_H__
 
-#include "mod_fsk.h"
-#include "mod_ask.h"
 #include "dds_calc.h"
 
 /* ================================================================
@@ -57,18 +55,16 @@
 #define HC595_OUTPUT_SELFTEST_WORD  0xFEFEU
 
 /* ================================================================
- * FTW constants (FTW = f_out / SYSCLK * 2^32)
- *   10 MHz →  85899346 (0x051EB852)
- *   11 MHz →  94489280 (0x05A1CAC0)
+ * FTW constants — precomputed via DDSCalc_FTW() at SYSCLK = 490.909091 MHz.
+ * Kept for the AD9959_CYCLIC_FTW_DMA_TEST bring-up switch; the live
+ * path computes FTW at runtime (host SET commands) or folds it at
+ * compile time (main.c default CW).
  * ================================================================ */
-#define FTW_10MHZ  87490075UL
-#define FTW_11MHZ  96239082UL
-/* 200 MHz at SYSCLK = 490.909091 MHz: 0x684BDA13. */
-#define FTW_200MHZ 1749801491UL
-/* 100.3 MHz at SYSCLK = 490.909091 MHz: 0x344DF9C8. */
-#define FTW_100P3MHZ 877525448UL
-/* 99.7 MHz at SYSCLK = 490.909091 MHz: 0x33F9C9A7. */
-#define FTW_99P7MHZ  872226471UL
+#define FTW_10MHZ  87490075UL      /* DDSCalc_FTW(10000000)   */
+#define FTW_11MHZ  96239082UL      /* DDSCalc_FTW(11000000)   */
+#define FTW_200MHZ 1749801491UL    /* DDSCalc_FTW(200000000)  */
+#define FTW_100P3MHZ 877525448UL   /* DDSCalc_FTW(100300000)  */
+#define FTW_99P7MHZ  872276043UL   /* DDSCalc_FTW(99700000) — was 872226471 (5.67 kHz low), fixed 2026-08-08 */
 
 /* ================================================================
  * Phase 1 default baud rate + oversampling (App layer sets these)

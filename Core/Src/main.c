@@ -88,7 +88,6 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 DebugState ds = {0};
 volatile AD9959_Diag ad9959_diag = {0};
-volatile AD9959_TimingDebug ad9959_timing_debug = {0};
 static volatile bool tx_running = true;
 
 /* Debugger (Ozone) trigger: set to 1 after modifying mod_cfg[] to
@@ -136,6 +135,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 #if AD9959_DOWNGRADE_MODE
     if (htim->Instance == TIM8) {
+        ds.tim8_isr_active = 1U;
         /* TIM8 CH1 hardware PWM generates IO_UPDATE automatically at
          * every period update.  SPI data sent here is applied by the
          * NEXT period's IO_UPDATE (one-sample pipeline, transparent
@@ -170,6 +170,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         ds.frame_count++;
         ad9959_diag.frame_count = ds.frame_count;
+        ds.tim8_isr_active = 0U;
         return;
     }
 #else
@@ -342,8 +343,11 @@ int main(void)
   }
   AD9959_IOUpdateTimerInit();  /* return PC6 to TIM8_CH1 AF */
 
-  /* ---- Prime first pre-encoded data frames ---- */
+#if AD9959_DOWNGRADE_MODE
+  /* ---- Prime first pre-encoded data frames (downgrade TIM8 ISR only;
+   *      DMA mode builds its banks via Encoder_BuildBank_DMA below) ---- */
   Encoder_BuildBank();
+#endif
 
   /* ---- Host protocol: USART1 RX DMA + IDLE ---- */
   BSP_UartRx_Init(&huart1);
@@ -370,9 +374,6 @@ int main(void)
   /* ---- Init trigger chain ---- */
   Trigger_Config tcfg;
   tcfg.spi1_ping   = tx_bank[0].spi1;
-  tcfg.spi3_ping   = NULL;              /* SPI3 dual-wire deferred */
-  tcfg.spi1_pong   = tx_bank[1].spi1;
-  tcfg.spi3_pong   = NULL;
   tcfg.bank_size   = tx_bank_bytes;
   tcfg.sample_rate = tx_timing.sample_rate;
   tcfg.ch1_delay   = P1_CH1_DELAY;      /* IO_UPDATE delay ticks (calibrate!) */
@@ -406,14 +407,19 @@ int main(void)
           last_tick = now;
 
           /* Debugger-driven reload: set debug_reload=1 in Ozone after
-           * modifying mod_cfg[] to apply changes to the live stream. */
+           * modifying mod_cfg[] to apply changes to the live stream.
+           * Must not write SPI1 while the TIM8 ISR may be mid-transfer:
+           * mask the update IRQ and wait for an in-flight ISR to drain. */
           if (debug_reload) {
               uint8_t mask = 0;
               for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
                   if (mod_cfg[ch].enabled) mask |= (1U << ch);
               }
+              TIM8->DIER &= ~TIM_IT_UPDATE;
+              while (ds.tim8_isr_active) { /* spin until ISR drained */ }
               Encoder_WriteStaticRegs(mask);
               Encoder_BuildBank();
+              TIM8->DIER |= TIM_IT_UPDATE;
               debug_reload = 0;
           }
       }
@@ -440,14 +446,20 @@ int main(void)
           (void)Encoder_BuildBank_DMA();
       }
 
-      /* Debugger-driven reload (Ozone debug_reload = 1). */
+      /* Debugger-driven reload (Ozone debug_reload = 1).
+       * The DMA chain owns SPI1 — stop it, apply, then restart. */
       if (debug_reload) {
           uint8_t mask = 0;
           for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
               if (mod_cfg[ch].enabled) mask |= (1U << ch);
           }
+          Trigger_Stop();
           Encoder_WriteStaticRegs(mask);
           (void)Encoder_BuildBank_DMA();
+          TxBuf_Swap();
+          (void)Encoder_BuildBank_DMA();
+          TxBuf_Swap();
+          Trigger_Restart();
           debug_reload = 0;
       }
 #endif

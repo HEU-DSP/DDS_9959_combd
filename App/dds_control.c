@@ -16,6 +16,7 @@
 #include "symbol_buffer.h"
 #include "tx_buffer.h"
 #include "phase1_config.h"
+#include "debug_state.h"
 #if !AD9959_DOWNGRADE_MODE
 #include "trigger.h"
 #endif
@@ -156,6 +157,16 @@ static uint8_t dds_apply_config(void)
  * ================================================================ */
 
 #if AD9959_DOWNGRADE_MODE
+/* Wait for an in-flight downgrade TIM8 ISR to drain.  The handshake flag
+ * is set on ISR entry / cleared on exit; DIER must already be masked so
+ * no NEW ISR can start after this poll returns. */
+static void dds_wait_tim8_isr_drained(void)
+{
+    while (ds.tim8_isr_active) { /* spin — ISR completes its blocking SPI */ }
+}
+#endif
+
+#if AD9959_DOWNGRADE_MODE
 static uint8_t dds_apply(void)
 {
     /* 1. Save TIM8 state */
@@ -163,11 +174,11 @@ static uint8_t dds_apply(void)
     uint32_t tim8_ccr1 = TIM8->CCR1;
     uint32_t tim8_dier = TIM8->DIER;
 
-    /* 2. Disable TIM8 update interrupt */
+    /* 2. Disable TIM8 update interrupt — no new ISR entries after this */
     TIM8->DIER &= ~TIM_IT_UPDATE;
 
     /* 3. Wait for any in-flight ISR to complete + SPI1 idle */
-    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    dds_wait_tim8_isr_drained();
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         /* SPI1 busy — restore and return error */
         TIM8->DIER = tim8_dier;
@@ -185,6 +196,7 @@ static uint8_t dds_apply(void)
     TIM8->ARR  = tim8_arr;
     TIM8->CCR1 = tim8_ccr1;
     TIM8->DIER = tim8_dier;
+    ad9959_diag.tx_running = 1U;   /* transport resumed */
 
     return DDS_APPLY_OK;
 }
@@ -194,8 +206,10 @@ static uint8_t dds_apply(void)
     /* 1. Stop the trigger chain (LPTIM3 + TIM8 + DMA abort) */
     Trigger_Stop();
 
-    /* 2. Wait for any in-flight DMA/SPI activity to settle */
-    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    /* 2. Wait for any in-flight DMA/SPI activity to settle (bounded poll) */
+    for (uint32_t i = 0; i < 10000U; i++) {
+        if (HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY) break;
+    }
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         /* SPI1 busy — resume the chain and report error */
         Trigger_Restart();
@@ -214,6 +228,7 @@ static uint8_t dds_apply(void)
 
     /* 10. Restart the trigger chain */
     Trigger_Restart();
+    ad9959_diag.tx_running = 1U;   /* transport resumed */
 
     return DDS_APPLY_OK;
 }
@@ -228,10 +243,10 @@ static uint8_t dds_stop_output(void)
 {
     uint32_t tim8_dier = TIM8->DIER;
 
-    /* Disable TIM8 ISR */
+    /* Disable TIM8 ISR — no new ISR entries after this */
     TIM8->DIER &= ~TIM_IT_UPDATE;
 
-    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    dds_wait_tim8_isr_drained();
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         TIM8->DIER = tim8_dier;
         return DDS_APPLY_ERR_SPI;
@@ -247,6 +262,7 @@ static uint8_t dds_stop_output(void)
     Encoder_BuildBank();
 
     TIM8->DIER = tim8_dier;
+    ad9959_diag.tx_running = 0U;   /* report STOP to the host */
     return DDS_APPLY_OK;
 }
 #else /* DMA mode */
@@ -255,7 +271,9 @@ static uint8_t dds_stop_output(void)
     /* Stop the trigger chain — output ceases immediately. */
     Trigger_Stop();
 
-    for (volatile int i = 0; i < 200; i++) { __NOP(); }
+    for (uint32_t i = 0; i < 10000U; i++) {
+        if (HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY) break;
+    }
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         Trigger_Restart();
         return DDS_APPLY_ERR_SPI;
@@ -271,6 +289,7 @@ static uint8_t dds_stop_output(void)
     SymbolBuf_Clear();
     tx_bank_bytes = Encoder_BuildBank_DMA();   /* 0 with no channels enabled */
 
+    ad9959_diag.tx_running = 0U;   /* report STOP to the host */
     return DDS_APPLY_OK;
 }
 #endif

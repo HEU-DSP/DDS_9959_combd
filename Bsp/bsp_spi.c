@@ -76,7 +76,6 @@ void BSP_SPI_Both_DMA_Start(const uint8_t *spi1_buf, const uint8_t *spi3_buf,
 {
     (void)spi3_buf;  /* SPI3 future expansion (dual-wire 2-bit mode) */
     ad9959_diag.spi1_buffer_addr = (uint32_t)spi1_buf;
-    ad9959_diag.spi3_buffer_addr = 0U;
 
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         ad9959_diag.spi1_start_status = (uint32_t)HAL_BUSY;

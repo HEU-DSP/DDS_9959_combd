@@ -196,7 +196,7 @@ static void handle_get_diag(uint8_t seq)
     reply_add_u32(ad9959_diag.frame_count);
     reply_add_u32((uint32_t)ds.frame_count);
     reply_add_u32(ad9959_diag.spi1_error);
-    reply_add_u32(ad9959_diag.spi1_dma_error);
+    reply_add_u32(ds.dma_error_count);
     reply_add_u32(ad9959_diag.tx_running);
     reply_add_u32(ad9959_diag.tx_stop_pending);
     reply_send(HOST_CMD_GET_DIAG);

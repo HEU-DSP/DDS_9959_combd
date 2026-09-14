@@ -10,10 +10,7 @@
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 
-/* ================================================================
- * TIM2 — removed from trigger chain (replaced by LPTIM3 sync).
- * Old declarations retained for reference in bsp_tim.c only.
- * ================================================================ */
+/* TIM2 removed from trigger chain (replaced by LPTIM3 sync). */
 
 /* ================================================================
  * TIM4 — CS Timing Capture (CH1/CH2 Input Capture + ETR Reset)
@@ -29,13 +26,6 @@ void BSP_TIM4_Start(void);
  * @brief  Stop TIM4 capture
  */
 void BSP_TIM4_Stop(void);
-
-/**
- * @brief  Get the latest captured values
- * @param  cs_start  : CNT value at CS falling edge (TIM4_CH1)
- * @param  cs_end    : CNT value at CS rising edge (TIM4_CH2)
- */
-void BSP_TIM4_GetCaptures(uint32_t *cs_start, uint32_t *cs_end);
 
 /* ================================================================
  * TIM8 — IO_UPDATE + DIO3 pulse (CH1/CH2 Output Compare)
