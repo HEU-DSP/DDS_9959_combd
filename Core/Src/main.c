@@ -38,6 +38,7 @@
 #include "bsp_uart_rx.h"
 #include "host_protocol.h"
 #include "dds_control.h"
+#include "debug_manual.h"
 #include "symbol_source.h"
 #include "trigger.h"
 #include "bsp_dma.h"
@@ -212,6 +213,28 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 
     BSP_DMA_NotifyComplete(hspi);
 }
+
+/**
+ * @brief  SPI error callback (HAL weak default is a no-op).
+ *
+ * Without this, a DMAMUX sync overrun ends in SPI_DMAError → SPI_CloseTransfer
+ * and the chain simply stops: no TxCplt ever fires again, so nothing re-arms
+ * the DMA.  Latch a flag here (ISR context — no processing) and let the main
+ * loop run the recovery, which Trigger_Stop()/Trigger_Restart() now support
+ * synchronously.
+ */
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi->Instance != SPI1) {
+        return;
+    }
+
+    ds.chain_fault = 1U;
+    ds.chain_fault_count++;
+    ad9959_diag.spi1_error = HAL_SPI_GetError(hspi);
+    ad9959_diag.dma1_lisr = DMA1->LISR;
+    ad9959_diag.dma1_hisr = DMA1->HISR;
+}
 #endif /* !AD9959_DOWNGRADE_MODE */
 
 /* USER CODE END 0 */
@@ -299,11 +322,15 @@ int main(void)
 #endif
 
 #if !AD9959_DIRECT_CW_TEST
-  /* ---- All 4 channels CW @ 99.7 MHz, full amplitude ---- */
-  ModCfg_SetCW(0, DDSCalc_FTW(99700000U), 0x3FF);
-  ModCfg_SetCW(1, DDSCalc_FTW(99700000U), 0x3FF);
-  ModCfg_SetCW(2, DDSCalc_FTW(99700000U), 0x3FF);
-  ModCfg_SetCW(3, DDSCalc_FTW(99700000U), 0x3FF);
+  /* ---- All 4 channels CW @ 99.7 MHz, amplitude zero (outputs muted) ----
+   * Bring-up step: the DMA trigger chain runs normally (56 B/frame, IO_UPDATE,
+   * TIM4 captures) but ASF = 0 keeps every channel silent on RF.
+   * Enable output later via host SET_CW(asf > 0) + APPLY, or by writing
+   * mod_cfg[ch].cw.asf in Ozone and setting debug_reload = 1. */
+  ModCfg_SetCW(0, DDSCalc_FTW(99700000U), 0x000);
+  ModCfg_SetCW(1, DDSCalc_FTW(99700000U), 0x000);
+  ModCfg_SetCW(2, DDSCalc_FTW(99700000U), 0x000);
+  ModCfg_SetCW(3, DDSCalc_FTW(99700000U), 0x000);
   SymbolBuf_Clear();
 
   /* Template1-style: CSR before every data register, all 4 channels,
@@ -312,7 +339,7 @@ int main(void)
   AD9959_IOUpdateGpioInit();    /* borrow PC6 as GPIO */
   {
       const uint8_t cfr[3]  = {0x00, 0x03, 0x00};          /* CFR */
-      const uint8_t acr[3]  = {0x00, 0x13, 0xFF};          /* ASF=0x3FF */
+      const uint8_t acr[3]  = {0x00, 0x10, 0x00};          /* ASF=0x000, AMP_MULT on */
       const uint8_t cpow[2] = {0x00, 0x00};                /* phase=0 */
 
       /* CFTW from DDSCalc — computed at compile time */
@@ -363,11 +390,15 @@ int main(void)
    * DMA mode: LPTIM3 → DMAMUX sync → SPI1 DMA → TIM8 ETR chain
    * ================================================================ */
 
-  /* Build initial bank 0 (zero-copy encode into D2 SRAM). */
+  /* Build initial bank 0 (zero-copy encode into D2 SRAM).  DebugManual_Task()
+   * runs first so a warm reset (Ozone keeps RAM, debug_manual_enable survives)
+   * gets the debug configuration into the very first frame. */
+  DebugManual_Task();                   /* no-op unless debug_manual_enable */
   tx_bank_bytes = Encoder_BuildBank_DMA();
 
   /* Prime bank 1 as idle (ping-pong pre-fill), then restore bank 0 active. */
   TxBuf_Swap();
+  DebugManual_Task();
   tx_bank_bytes = Encoder_BuildBank_DMA();
   TxBuf_Swap();
 
@@ -380,9 +411,10 @@ int main(void)
   tcfg.ch2_delay   = P1_CH2_DELAY;      /* DIO3 delay ticks             */
   Trigger_Init(&tcfg);
 
-  /* Arm DMA, then start LPTIM3 — chain begins. */
-  Trigger_Start();
-  ad9959_diag.tx_running = 1U;
+  /* Arm DMA, then start LPTIM3 — chain begins.  Trigger_Start() leaves LPTIM3
+   * stopped when the DMA refuses to arm, in which case the main loop reports
+   * tx_running = 0 (no frames) instead of silently overrunning the sync gate. */
+  ad9959_diag.tx_running = (uint32_t)(Trigger_Start() == HAL_OK);
   ad9959_diag.tx_stop_pending = 0U;
 #endif
 #endif
@@ -400,6 +432,11 @@ int main(void)
     /* USER CODE BEGIN 3 */
     HostProtocol_Task();
     DDSControl_Task();
+
+    /* TX-status LEDs (MOD READY + CH0..CH3) — once per pass, both modes.
+     * Runs before the mode-specific blocks: SymbolBuf_HasData() is only
+     * stable at end-of-pass, outside the symbol generate/consume windows. */
+    Led_UpdateTxState();
 
 #if AD9959_DOWNGRADE_MODE
       uint32_t now = HAL_GetTick();
@@ -424,11 +461,42 @@ int main(void)
           }
       }
 #else
+      /* ---- Chain fault recovery ----
+       * HAL_SPI_ErrorCallback() latched this.  dds.chain_fault is the ONLY
+       * path back from a dead chain: Trigger_Stop() now returns with SPI1
+       * genuinely idle, and Trigger_Restart() refuses to start LPTIM3 unless
+       * the DMA armed successfully. */
+      if (ds.chain_fault) {
+          ds.chain_fault = 0U;
+          if (AD9959_DMA_AUTO_RESTART) {
+              ad9959_diag.chain_recovery_count++;
+              (void)Trigger_Stop();
+              ad9959_diag.tx_running = (uint32_t)(Trigger_Restart() == HAL_OK);
+          } else {
+              ad9959_diag.tx_running = 0U;
+          }
+          /* AD9959_DMA_AUTO_RESTART = 0: leave the chain dead so Ozone can
+           * inspect hspi1.ErrorCode / hspi1.State / ad9959_diag.spi1_error —
+           * tx_running now reports the chain as stopped, so MOD READY drops. */
+      }
+
+      /* Manual debug mode owns mod_cfg[].  Called every main-loop pass, NOT
+       * only on dma_bank_ready: otherwise a dead chain freezes mod_cfg[] and
+       * the debugger cannot see (or change) anything.  The function is cheap
+       * and idempotent — the encoder still only reads it once per frame. */
+      if (debug_manual_enable) {
+          DebugManual_Task();
+      }
+
       /* DMA mode: refill the idle bank when the DMA TC ISR signals it. */
       if (ds.dma_bank_ready) {
           ds.dma_bank_ready = 0U;
 
-          if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
+          if (!debug_manual_enable && !SymbolBuf_HasData() && SymbolBuf_IsFree()) {
+              /* Only CW/4FSK/BPSK/QPSK channels consume symbols.  The symbol
+               * width is the maximum over those; scanning mod_cfg[] also gives
+               * the encoder a chance to observe in-flight debug writes, which
+               * is harmless — the encoder re-reads mod_cfg[] itself. */
               uint8_t ib = 0U;
               for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
                   if (!mod_cfg[ch].enabled) continue;
@@ -447,19 +515,24 @@ int main(void)
       }
 
       /* Debugger-driven reload (Ozone debug_reload = 1).
-       * The DMA chain owns SPI1 — stop it, apply, then restart. */
-      if (debug_reload) {
+       * The DMA chain owns SPI1 — stop it, apply, then restart.
+       * Skipped in manual debug mode: DebugManual_Task() already rebuilds
+       * mod_cfg[] every frame, so the stop/restart cycle would only cost a
+       * chain stall and then be overwritten.
+       * Trigger_Stop() is synchronous, so the blocking Encoder_WriteStaticRegs
+       * below no longer races an in-flight HAL_SPI_Abort_IT(). */
+      if (debug_reload && !debug_manual_enable) {
           uint8_t mask = 0;
           for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
               if (mod_cfg[ch].enabled) mask |= (1U << ch);
           }
-          Trigger_Stop();
+          (void)Trigger_Stop();
           Encoder_WriteStaticRegs(mask);
           (void)Encoder_BuildBank_DMA();
           TxBuf_Swap();
           (void)Encoder_BuildBank_DMA();
           TxBuf_Swap();
-          Trigger_Restart();
+          ad9959_diag.tx_running = (uint32_t)(Trigger_Restart() == HAL_OK);
           debug_reload = 0;
       }
 #endif

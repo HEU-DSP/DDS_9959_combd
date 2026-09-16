@@ -14,6 +14,8 @@
 #include "bsp_uart_rx.h"
 #include "bsp_uart.h"
 #include "symbol_buffer.h"
+#include "debug_manual.h"
+#include "phase1_config.h"
 #include <string.h>
 
 /* ---- External HAL handles ---- */
@@ -215,6 +217,7 @@ static void handle_set_cw(uint8_t seq, const uint8_t *pay, uint16_t len)
     pending_cfg[ch].enabled = true;
     pending_cfg[ch].cw.ftw  = DDSCalc_FTW(freq);
     pending_cfg[ch].cw.asf  = asf;
+    pending_cfg[ch].cw.pow  = 0U;   /* CPOW is not host-settable in v1 */
     pending_cfg_has_data = true;
     reply_ack(seq, HOST_CMD_SET_CW);
 }
@@ -335,6 +338,15 @@ static void handle_set_symbols(uint8_t seq, const uint8_t *pay, uint16_t len)
 
 static void handle_apply(uint8_t seq)
 {
+#if !AD9959_DOWNGRADE_MODE
+    /* Manual debug mode owns mod_cfg[]; an APPLY would be overwritten within
+     * one frame anyway.  Refuse up front rather than accept a command that
+     * silently does nothing. */
+    if (debug_manual_enable) {
+        reply_nack(seq, HOST_CMD_APPLY, HOST_NACK_LOCAL_MODE);
+        return;
+    }
+#endif
     if (!pending_cfg_has_data) {
         reply_nack(seq, HOST_CMD_APPLY, HOST_NACK_NOT_READY);
         return;
@@ -356,6 +368,12 @@ static void handle_apply(uint8_t seq)
 
 static void handle_stop_output(uint8_t seq)
 {
+#if !AD9959_DOWNGRADE_MODE
+    if (debug_manual_enable) {
+        reply_nack(seq, HOST_CMD_STOP_OUTPUT, HOST_NACK_LOCAL_MODE);
+        return;
+    }
+#endif
     if (DDSControl_IsBusy()) {
         reply_nack(seq, HOST_CMD_STOP_OUTPUT, HOST_NACK_BUSY);
         return;

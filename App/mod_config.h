@@ -35,6 +35,7 @@ typedef enum {
 typedef struct {
     uint32_t ftw;
     uint16_t asf;
+    uint16_t pow;   /* 14-bit CPOW phase offset (0..16383) */
 } CW_Params;
 
 typedef struct {
@@ -118,6 +119,7 @@ extern ChannelModConfig mod_cfg[DDS_CHANNEL_COUNT];
 static inline void ModCfg_SetCW(uint8_t ch, uint32_t ftw, uint16_t asf) {
     mod_cfg[ch].mode = CH_MODE_CW; mod_cfg[ch].enabled = true;
     mod_cfg[ch].cw.ftw = ftw; mod_cfg[ch].cw.asf = asf;
+    mod_cfg[ch].cw.pow = 0U;    /* callers wanting a phase offset set it after */
 }
 static inline void ModCfg_SetFSK(uint8_t ch, uint32_t ftw_m, uint32_t ftw_s, uint16_t asf) {
     mod_cfg[ch].mode = CH_MODE_FSK; mod_cfg[ch].enabled = true;

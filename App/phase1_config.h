@@ -25,7 +25,7 @@
  *       DMAMUX RequestNumber = 14 bytes per pulse (one channel).
  *       SPI3 (dual-wire 2-bit) deferred to a later phase.
  * ================================================================ */
-#define AD9959_DOWNGRADE_MODE  1
+#define AD9959_DOWNGRADE_MODE  0
 
 /* Bring-up mode: program CH0 CW entirely through the one-bit DIO0 protocol. */
 #define AD9959_DIRECT_CW_TEST  0
@@ -88,8 +88,10 @@
 #define AD9959_TIM4_MONITOR_ENABLE  1
 #define AD9959_TIM4_AUTOCAL_ENABLE  0
 
-/* Keep a DMA fault frozen for Ozone inspection.  Set to 1 only after the
- * fault cause is understood and automatic recovery is desired. */
+/* Chain-fault recovery policy (DMA mode).  HAL_SPI_ErrorCallback() latches a
+ * fault (typically a DMAMUX sync overrun) into ds.chain_fault; the main loop
+ * then either restarts the chain (1) or leaves it dead so Ozone can inspect
+ * hspi1.ErrorCode / hspi1.State / ad9959_diag.spi1_error (0). */
 #define AD9959_DMA_AUTO_RESTART  1
 
 /* ================================================================

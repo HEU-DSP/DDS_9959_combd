@@ -16,10 +16,12 @@
 typedef struct {
     /* ---- Counters ---- */
     uint32_t frame_count;        /* 总发送帧数 */
-    uint32_t dma_error_count;    /* DMA 错误次数 (DMAMUX overrun) */
+    uint32_t dma_error_count;    /* SPI1 DMAMUX 同步溢出次数 */
+    uint32_t chain_fault_count;  /* SPI 传输错误次数 (HAL_SPI_ErrorCallback) */
 
     /* ---- DMA mode handshake (ISR → main loop) ---- */
     uint8_t  dma_bank_ready;     /* 1 = idle bank refill requested by DMA TC */
+    uint8_t  chain_fault;        /* 1 = SPI error latched, recovery pending */
 
     /* ---- Downgrade-mode ISR handshake ---- */
     volatile uint8_t tim8_isr_active; /* 1 while TIM8 ISR is mid-transfer */
@@ -46,6 +48,7 @@ typedef struct {
     uint32_t tx_stop_pending;
     uint32_t tim8_ccr1;
     uint32_t tim8_ccr2;
+    uint32_t chain_recovery_count;   /* fault recoveries performed by main loop */
 } AD9959_Diag;
 
 extern DebugState ds;

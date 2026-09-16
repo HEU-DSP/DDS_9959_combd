@@ -134,6 +134,36 @@ CubeMX 默认 `NSS_PULSE_ENABLE = SPI_CFG2_SSOM`：字节间 CS 脉冲会中断 
 
 `sed` 连续两次修改 `phase1_config.h`（同一秒内）时，make 可能不重新编译依赖文件（时间戳粒度）。**切换编译开关后务必 `make clean` 再编译。**
 
+### 7. DMAMUX 同步溢出必须被当作"可恢复"而不是"致命"（2026-09-15）
+
+HAL 对同步溢出的默认处置是**关闭链路且不通知任何人**，这与本链"永不停止"的设计前提直接冲突：
+
+```
+LPTIM3 脉冲在 DMA 不能接受请求时到来
+  → DMAMUX 同步溢出
+  → HAL_DMAEx_MUX_IRQHandler (hal_dma_ex.c:582)
+       · DMAmuxChannel->CCR &= ~SOIE     ← 关掉溢出中断，此后不再报
+       · hdma->ErrorCode |= HAL_DMA_ERROR_SYNC
+       · hdma->XferErrorCallback(hdma)   ← SPI1 TX 流上是 SPI_DMAError
+  → SPI_DMAError (hal_spi.c:3518)
+       · SPI_CloseTransfer()             ← 关 SPI，NSS↑，TxXferCount → 0
+       · ErrorCode |= HAL_SPI_ERROR_DMA  ← 即观测到的 0x10
+       · State = HAL_SPI_STATE_READY
+       · HAL_SPI_ErrorCallback()         ← __weak 空实现，本工程原先没有覆盖
+  → 没有 TxBuf_Swap()、没有重新 arm DMA、没有 ds.dma_bank_ready
+  → HAL_SPI_TxCpltCallback 永不再触发 → 链路永久停止，只能复位
+```
+
+因此本链有**三条不可违反的不变量**：
+
+1. **先武装、后启动，且三步必须原子**。`BSP_SPI_Both_DMA_Start()` 返回 `HAL_StatusTypeDef`；`trigger_arm_and_run()` 把 `LPTIM3->CNT = 0` → 武装 → `BSP_LPTIM3_Start()` 包在**一个 PRIMASK 临界区**里（`__get_PRIMASK()` / `__disable_irq()` / 按需 `__enable_irq()`），因为 `HAL_DMA_Start_IT()` 和 `HAL_SPI_Transmit_DMA()` 改动的正是 SPI1 EOT 与 DMA1_Stream1 两个 ISR 共享的状态。反过来（LPTIM3 在跑、DMA 没武装）本身就**是**溢出的定义。
+   > ⚠️ `main.c` 的既有写法是 `__disable_irq()` 后**无条件** `__enable_irq()`（不保存/恢复 PRIMASK），别照抄——那会在临界区内嵌套时提前开中断。
+2. **`Trigger_Stop()` 必须同步，且必须顺手把 DMA 流停到 READY**。`HAL_SPI_Abort_IT()` 只在函数入口置 `State = ABORT`，真正回 READY 要等 DMA abort 回调；期间的任何 `HAL_SPI_Transmit*` 都会拿到 `HAL_BUSY` 并被静默丢弃（写入 `ad9959_hwspi_debug.*_status` 但无人查看）。`Trigger_Stop()` 现在内部轮询到 READY 才返回。
+   > ⚠️ **SPI 是 READY ≠ DMA 流是 READY**。`SPI_DMAError()` 只关 SPI、清 `TxXferCount`，**完全不动 DMA 流**——溢出发生在传输中途时流会一直停在 BUSY。而 `HAL_DMA_Start_IT()` 只武装 READY 的流，`HAL_DMA_Start_IT` 失败又会让 `HAL_SPI_Transmit_DMA()` 直接 `return HAL_ERROR`。所以 `Trigger_Stop()` 末尾必须调 `BSP_SPI_ForceDmaIdle()`（`HAL_DMA_Abort()` + 兜底直写 `State`/`ErrorCode`），否则"自动恢复"会**假成功**：标志清了、链还是死的。
+3. **故障要可恢复**。`HAL_SPI_ErrorCallback()` 只置 `ds.chain_fault`；主循环执行 `Trigger_Stop()` → `Trigger_Restart()`，由 `AD9959_DMA_AUTO_RESTART` 门控。恢复期间丢的只是当前帧剩余的 IO_UPDATE（寄存器保持上一帧值，40 µs 后自动纠正），射频无感。
+
+`ds.dma_error_count` 只统计 **SPI1 自己那一路**的溢出：`DMAMUX1_OVR_IRQHandler` 是 DMAMUX1 全通道共享的，用 `hdma_spi1_tx.DMamuxChannelStatusMask` 做掩码判断，否则会把别的通道的溢出算到 DDS 链头上。
+
 ## Verification
 
 1. **编译验证**：`make -j4` 在 `AD9959_DOWNGRADE_MODE=0` 和 `=1` 两种配置下均通过（切换后 `make clean`，避免 make 同秒时间戳问题）

@@ -205,11 +205,15 @@ Payload：`bit_count(u16 LE) + bit_data[bit_count]`。
 
 重要：暂存配置是完整的四通道镜像。若只发送一个通道的 SET 命令后就 APPLY，其他未设置通道将以默认关闭状态被覆盖。要保留的每个通道都必须在同一轮 APPLY 前重新发送其 SET 命令。
 
+**手动调试模式**：当固件处于手动调试模式（Ozone 变量 `debug_manual_enable = 1`）时，本命令返回 NACK `08` LOCAL_MODE，且该判定优先于 `07` NOT_READY 与 `06` BUSY。暂存配置 `pending_cfg[]` 会被保留（`SET_*` 命令仍正常 ACK 并写入暂存），待退出调试模式后再次 APPLY 即可生效。
+
 ### 4.11 `0A` — STOP_OUTPUT
 
 请求 Payload：空；应答为空 ACK。
 
 当前固件行为是停止 TIM8 的后续寄存器更新并把软件通道标记为 OFF。**它没有向 AD9959 显式写入零幅度或 Power-Down，因此不能作为射频安全关断命令。** 如需可靠关断，请先以 `SET_CW(asf=0)` 配置目标通道并 APPLY；安全关断策略将在后续固件中单独完善。
+
+**手动调试模式**：`debug_manual_enable = 1` 时本命令返回 NACK `08` LOCAL_MODE（判定优先于 `06` BUSY）。退出调试模式的方式是从调试器把该变量置回 `0`。
 
 ### 4.12 `0B` — GET_DIAG
 
@@ -224,6 +228,8 @@ Payload：`bit_count(u16 LE) + bit_data[bit_count]`。
 | 16 | `spi1_dma_error` |
 | 20 | `tx_running` |
 | 24 | `tx_stop_pending` |
+
+> `tx_running = 1` 表示传输链已武装且正在运行（DMA 模式为 LPTIM3→DMAMUX→SPI1 DMA 链，降级模式为 TIM8 自由运行 ISR）；`0` 表示已停止或链故障未恢复。开机 DMA 模式成功启动后为 `1`。
 
 ## 5. 应答与 NACK
 
@@ -240,6 +246,7 @@ Payload：`bit_count(u16 LE) + bit_data[bit_count]`。
 | `05` | INVALID_CH | 通道不在 0..3 |
 | `06` | BUSY | 符号缓冲区或 DDS 切换忙 |
 | `07` | NOT_READY | 尚未设置暂存配置便请求 APPLY |
+| `08` | LOCAL_MODE | 固件处于手动调试模式（`debug_manual_enable = 1`），APPLY / STOP_OUTPUT 被拒绝 |
 
 ## 6. 当前功能边界与联调注意事项
 
@@ -247,6 +254,7 @@ Payload：`bit_count(u16 LE) + bit_data[bit_count]`。
 2. 固件仅对 CW 的 `asf > 1023` 返回 BAD_PARAM；其余调制 SET 命令当前会接受超范围 ASF，编码时低 10 bit 生效。上位机必须自行限制 `0..1023`，后续固件应统一补充校验。
 3. 固件以最小长度判断 SET 命令，多余 Payload 字节会被忽略。上位机应严格按本文规定长度发送。
 4. `VER` 当前应填 `01`；固件当前未对版本字段回 NACK，因此上位机必须主动做版本兼容管理。
+5. 手动调试模式（Ozone 置 `debug_manual_enable = 1`）期间，固件每帧用 `debug_ch_cfg[]` 重写 `mod_cfg[]`，因此 `GET_STATUS` 反映的是**调试配置**而非上位机暂存配置；`SET_SYMBOLS` 写入的符号会被丢弃（进入调试模式时清空一次），退出后需重发。
 5. UART 接收帧没有独立事务超时；若中途断帧，下一帧应从 `A5 5A` 开始重新同步。
 
 ## 7. 上位机实现建议

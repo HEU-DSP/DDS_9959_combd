@@ -28,6 +28,7 @@
 #define __TRIGGER_H__
 
 #include <stdint.h>
+#include "main.h"       /* HAL_StatusTypeDef */
 
 typedef struct {
     const uint8_t  *spi1_ping;     /* boot-time DMA source (bank 0) */
@@ -37,10 +38,38 @@ typedef struct {
     uint16_t        ch2_delay;     /* TIM8 CH2 (DIO3) ticks */
 } Trigger_Config;
 
+/* Bounded polls (DWT-delay based, ~30 ms ceiling) used to keep the chain
+ * transitions synchronous — see Trigger_Stop(). */
+#define TRIGGER_ABORT_TIMEOUT_MS     30U
+#define TRIGGER_ARM_TIMEOUT_MS       10U
+
 void Trigger_Init(const Trigger_Config *cfg);
-void Trigger_Start(void);
-void Trigger_Stop(void);
-void Trigger_Restart(void);   /* Resume after Stop without full re-init */
-void Trigger_SwapBuffer(void);
+
+/**
+ * @brief  Arm the DMA chain and start LPTIM3.
+ * @return HAL_OK if armed and started; HAL_ERROR/HAL_BUSY if the DMA could not
+ *         be armed — LPTIM3 is then left STOPPED so no overrun can occur.
+ */
+HAL_StatusTypeDef Trigger_Start(void);
+
+/**
+ * @brief  Stop LPTIM3/TIM8/TIM4 and abort the SPI1 DMA, then wait for SPI1 to
+ *         reach READY.  Synchronous: returns with the transport fully idle.
+ * @return HAL_OK if SPI1 reached READY; HAL_TIMEOUT otherwise.
+ */
+HAL_StatusTypeDef Trigger_Stop(void);
+
+/**
+ * @brief  Resume after Trigger_Stop() without a full re-init.
+ * @return Same convention as Trigger_Start().
+ */
+HAL_StatusTypeDef Trigger_Restart(void);
+
+/**
+ * @brief  Swap the ping-pong bank and re-arm the DMA mid-stream.
+ * @return Same convention as Trigger_Start().  The caller must NOT rely on the
+ *         swap having taken effect when this returns non-HAL_OK.
+ */
+HAL_StatusTypeDef Trigger_SwapBuffer(void);
 
 #endif /* __TRIGGER_H__ */

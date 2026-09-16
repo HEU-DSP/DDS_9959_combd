@@ -60,6 +60,7 @@
 #define HOST_NACK_INVALID_CH      0x05U
 #define HOST_NACK_BUSY            0x06U
 #define HOST_NACK_NOT_READY       0x07U
+#define HOST_NACK_LOCAL_MODE      0x08U   /* manual debug mode owns mod_cfg[] */
 
 /* ---- SYNC state machine ---- */
 typedef enum {

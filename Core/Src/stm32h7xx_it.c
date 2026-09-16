@@ -281,12 +281,17 @@ void TIM5_IRQHandler(void)
 void DMAMUX1_OVR_IRQHandler(void)
 {
   /* USER CODE BEGIN DMAMUX1_OVR_IRQn 0 */
-  /* Sync-gate overrun (LPTIM3_OUT pulses while DMA still busy) — count
-   * and freeze the status registers for Ozone inspection. */
-  ds.dma_error_count++;
+  /* Sync-gate overrun (LPTIM3_OUT pulses while the DMA could not accept the
+   * request).  Snapshot the status registers before HAL clears the flag, and
+   * count only SPI1's own channel — this IRQ is shared by every DMAMUX1
+   * channel, so an unconditional ++ would attribute foreign overruns to the
+   * DAC chain and mislead bring-up debugging. */
   ad9959_diag.dma1_lisr = DMA1->LISR;
   ad9959_diag.dma1_hisr = DMA1->HISR;
   ad9959_diag.dmamux1_csr = DMAMUX1_ChannelStatus->CSR;
+  if ((ad9959_diag.dmamux1_csr & hdma_spi1_tx.DMAmuxChannelStatusMask) != 0U) {
+    ds.dma_error_count++;
+  }
   /* USER CODE END DMAMUX1_OVR_IRQn 0 */
   // Handle DMA1_Stream1
   HAL_DMAEx_MUX_IRQHandler(&hdma_spi1_tx);

@@ -118,6 +118,14 @@ static uint8_t dds_apply_config(void)
     /* 3. Write CSR + CFR static regs for every enabled channel */
     Encoder_WriteStaticRegs(channel_mask);
 
+    /* 3b. Re-assert FR1 (PLL x20).  This is the boot-time-only register the
+     *     10 kHz DMA frame never rewrites, so it is the one setting that
+     *     cannot heal itself — lose it and the chip runs at SYSCLK = REF_CLK
+     *     (24.545 MHz), making every output 20x low while the FTW still
+     *     looks right.  PC6 is already GPIO here and step 5 latches, so an
+     *     APPLY now restores the PLL instead of requiring a reboot. */
+    AD9959_ReassertPLL();
+
     /* 4. Write initial CFTW for CW channels so output is immediate */
     for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
         if (!mod_cfg[ch].enabled) continue;
@@ -203,32 +211,28 @@ static uint8_t dds_apply(void)
 #else /* DMA mode */
 static uint8_t dds_apply(void)
 {
-    /* 1. Stop the trigger chain (LPTIM3 + TIM8 + DMA abort) */
-    Trigger_Stop();
-
-    /* 2. Wait for any in-flight DMA/SPI activity to settle (bounded poll) */
-    for (uint32_t i = 0; i < 10000U; i++) {
-        if (HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY) break;
-    }
-    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-        /* SPI1 busy — resume the chain and report error */
-        Trigger_Restart();
+    /* 1. Stop the trigger chain and wait until SPI1 is genuinely idle.
+     *    Trigger_Stop() is synchronous — the blocking AD9959_WriteRegister()
+     *    calls in dds_apply_config() no longer race an in-flight abort, which
+     *    is what silently dropped CSR/CFR writes and left the chain dead. */
+    if (Trigger_Stop() != HAL_OK) {
         return DDS_APPLY_ERR_SPI;
     }
 
-    /* 3-8. Copy config + static regs + GPIO IO_UPDATE */
+    /* 2-7. Copy config + static regs + GPIO IO_UPDATE */
     (void)dds_apply_config();
 
-    /* 9. Rebuild both ping-pong banks (zero-copy into D2 SRAM) */
+    /* 8. Rebuild both ping-pong banks (zero-copy into D2 SRAM) */
     SymbolBuf_Clear();
     tx_bank_bytes = Encoder_BuildBank_DMA();
     TxBuf_Swap();
     tx_bank_bytes = Encoder_BuildBank_DMA();
     TxBuf_Swap();
 
-    /* 10. Restart the trigger chain */
-    Trigger_Restart();
-    ad9959_diag.tx_running = 1U;   /* transport resumed */
+    /* 9. Restart the trigger chain.  Trigger_Restart() only starts LPTIM3
+     *    once the DMA is armed, so a failure here leaves the chain stopped
+     *    rather than overrunning the sync gate. */
+    ad9959_diag.tx_running = (uint32_t)(Trigger_Restart() == HAL_OK);
 
     return DDS_APPLY_OK;
 }
@@ -268,14 +272,8 @@ static uint8_t dds_stop_output(void)
 #else /* DMA mode */
 static uint8_t dds_stop_output(void)
 {
-    /* Stop the trigger chain — output ceases immediately. */
-    Trigger_Stop();
-
-    for (uint32_t i = 0; i < 10000U; i++) {
-        if (HAL_SPI_GetState(&hspi1) == HAL_SPI_STATE_READY) break;
-    }
-    if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-        Trigger_Restart();
+    /* Stop the trigger chain — output ceases immediately.  Synchronous. */
+    if (Trigger_Stop() != HAL_OK) {
         return DDS_APPLY_ERR_SPI;
     }
 

@@ -223,7 +223,16 @@ static void AD9959_PowerUpSequence(void)
  * REF_CLK = 24.545 MHz (TIM15), PLL x20 = 490.909 MHz SYSCLK
  * ================================================================ */
 
-static void AD9959_ConfigPLL(void)
+/**
+ * @brief  Write FR1 (VCO gain + PLL multiplier + charge pump) over SPI.
+ *
+ * Plain register write, no latch.  FR1 is I/O-buffered like the channel
+ * registers, so the value only takes effect on the next IO_UPDATE rising
+ * edge.  Callers own that latch:
+ *   - boot:   AD9959_ConfigPLL() below
+ *   - APPLY:  dds_apply_config() borrows PC6 and pulses IO_UPDATE itself
+ */
+static void AD9959_WriteFR1(void)
 {
     uint8_t fr1_data[3];
     uint32_t fr1_val = 0;
@@ -241,6 +250,49 @@ static void AD9959_ConfigPLL(void)
     fr1_data[2] =  fr1_val        & 0xFF;
 
     AD9959_WriteRegister(AD9959_REG_FR1, fr1_data, 3);
+}
+
+/**
+ * @brief  Re-assert FR1 so a PLL that lost its setting comes back.
+ *
+ * FR1 is the only register on the critical path that is written once, at
+ * boot, and never again.  The 10 kHz DMA frame refreshes CSR/CFTW/ACR/
+ * CPOW every 100 us, so corruption of those self-heals within one frame —
+ * but a corrupted FR1 stays wrong until the next reset, and the chip then
+ * runs at SYSCLK = REF_CLK instead of 490.909 MHz, making every output
+ * frequency 20x low while the FTW itself still looks correct.
+ *
+ * Calling this from the APPLY safe-switch makes the PLL recoverable
+ * without a reboot.
+ *
+ * @note  Register write only.  The caller must own PC6 as GPIO and pulse
+ *        IO_UPDATE afterwards for this to take effect.
+ */
+void AD9959_ReassertPLL(void)
+{
+    AD9959_WriteFR1();
+}
+
+/**
+ * @brief  Boot-time FR1 sequence: write, latch, wait for PLL lock.
+ *
+ * No hardware IO_UPDATE exists yet at this point — TIM8 is not started
+ * until Trigger_Init().  The latch is therefore a software pulse on PC6,
+ * which is handed back to TIM8_CH1 afterwards.
+ *
+ * The wait is a datasheet requirement ("when the multiplier is enabled or
+ * its value changed, allow time for the PLL to lock, typically 1 ms").
+ * Everything downstream — the FTW math in dds_calc.h above all — assumes
+ * a 490.909 MHz SYSCLK, so the lock must complete before the first frame.
+ */
+static void AD9959_ConfigPLL(void)
+{
+    AD9959_WriteFR1();
+
+    AD9959_IOUpdateGpioInit();   /* borrow PC6 as GPIO   */
+    AD9959_IOUpdate();           /* latch FR1 → PLL starts */
+    HAL_Delay(1);                /* PLL lock (datasheet: typ. 1 ms) */
+    AD9959_IOUpdateTimerInit();  /* hand PC6 back to TIM8_CH1 */
 }
 
 static void AD9959_ConfigureDirectIdlePins(void)

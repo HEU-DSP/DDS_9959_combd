@@ -5,7 +5,8 @@
  *
  * Hardware:
  *   PE2 → STCP (RCLK) — storage register clock (latch)
- *   PE3 → DS (SER)    — serial data in (via USART10 half-duplex TX)
+ *   PE3 → DS (SER)    — serial data in (GPIO bit-bang; the USART10
+ *                        half-duplex transport was planned but never built)
  *   PE4 → SHCP (SRCLK) — shift register clock
  *   PE5 → MR (SRCLR)   — master reset (active low)
  *   PE6 → OE           — output enable (active low)

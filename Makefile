@@ -88,6 +88,7 @@ App/mod_config.c \
 App/channel_config.c \
 App/host_protocol.c \
 App/dds_control.c \
+App/debug_manual.c \
 App/led_indicator.c \
 Middleware/symbol_buffer.c
 

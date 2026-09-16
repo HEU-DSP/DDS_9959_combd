@@ -268,11 +268,11 @@ TIM2_CH1 (PA0) 作为 DMA 时钟源，每个上升沿同时触发两路 DMA 从�
 | #1 | 0 | NC | 未连接 |
 | #1 | 1 | LEDSTBY | 待机指示灯 |
 | #1 | 2 | LED ANALOGREADY | 模拟前端就绪指示灯 |
-| #1 | 3 | LEDMODREADY | 调制/模式就绪指示灯 |
-| #1 | 4 | LEDCH0TRANSMIT | CH0 发射指示 |
-| #1 | 5 | LEDCH1TRANSMIT | CH1 发射指示 |
-| #1 | 6 | LEDCH2TRANSMIT | CH2 发射指示 |
-| #1 | 7 | LEDCH3TRANSMIT | CH3 发射指示 |
+| #1 | 3 | LEDMODREADY | 调制就绪：传输链运行且无待发数据时亮 |
+| #1 | 4 | LEDCH0TRANSMIT | CH0：使能闪烁 / 有输出常亮 / 不使能灭 |
+| #1 | 5 | LEDCH1TRANSMIT | CH1：同上 |
+| #1 | 6 | LEDCH2TRANSMIT | CH2：同上 |
+| #1 | 7 | LEDCH3TRANSMIT | CH3：同上 |
 | #2 | 0 | NC | 未连接 |
 | #2 | 1 | DDSPWREN1V8D | DDS 数字 1.8V 电源使能 |
 | #2 | 2 | DDSPWREN1V8A | DDS 模拟 1.8V 电源使能 |

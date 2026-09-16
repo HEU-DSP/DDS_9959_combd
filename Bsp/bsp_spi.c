@@ -71,8 +71,33 @@ HAL_StatusTypeDef BSP_SPI_GetState(SPI_TypeDef *spi)
  * Convenience: Start both SPI DMA simultaneously
  * ================================================================ */
 
-void BSP_SPI_Both_DMA_Start(const uint8_t *spi1_buf, const uint8_t *spi3_buf,
-                            uint16_t size)
+void BSP_SPI_ForceDmaIdle(void)
+{
+    DMA_HandleTypeDef *hdma = hspi1.hdmatx;
+
+    if (hdma == NULL) {
+        return;
+    }
+
+    /* HAL_DMA_Abort() only acts on a BUSY stream and rejects anything else
+     * without touching State. */
+    if (hdma->State == HAL_DMA_STATE_BUSY) {
+        (void)HAL_DMA_Abort(hdma);
+    }
+
+    /* Park the stream.  Touching HAL internals is deliberate: SPI_DMAError()
+     * leaves the stream BUSY (overrun mid-transfer) or ERROR (HAL_DMA_Abort()
+     * itself sets ERROR when EN never clears), and HAL_DMA_Start_IT() refuses
+     * both.  Without this the chain is unrecoverable short of a reset. */
+    if (hdma->State != HAL_DMA_STATE_READY) {
+        __HAL_DMA_DISABLE(hdma);
+        hdma->State     = HAL_DMA_STATE_READY;
+        hdma->ErrorCode = HAL_DMA_ERROR_NONE;
+    }
+}
+
+HAL_StatusTypeDef BSP_SPI_Both_DMA_Start(const uint8_t *spi1_buf,
+                                         const uint8_t *spi3_buf, uint16_t size)
 {
     (void)spi3_buf;  /* SPI3 future expansion (dual-wire 2-bit mode) */
     ad9959_diag.spi1_buffer_addr = (uint32_t)spi1_buf;
@@ -80,10 +105,10 @@ void BSP_SPI_Both_DMA_Start(const uint8_t *spi1_buf, const uint8_t *spi3_buf,
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
         ad9959_diag.spi1_start_status = (uint32_t)HAL_BUSY;
         ad9959_diag.spi1_hal_state = (uint32_t)HAL_SPI_GetState(&hspi1);
-        return;
+        return HAL_BUSY;
     }
 
-    (void)BSP_SPI_DMA_Start(SPI1, spi1_buf, size);
+    return BSP_SPI_DMA_Start(SPI1, spi1_buf, size);
 }
 
 void BSP_SPI_Both_Abort(void)

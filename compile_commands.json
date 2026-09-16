@@ -230,11 +230,6 @@
         "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\DDS\\dds_encoder.c"
     },
     {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/pingpong.d\" -Wa,-a,-ad,-alms=build/pingpong.lst Middleware/Buffer/pingpong.c -o build/pingpong.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Buffer\\pingpong.c"
-    },
-    {
         "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/symbol_source.d\" -Wa,-a,-ad,-alms=build/symbol_source.lst Middleware/Symbol/symbol_source.c -o build/symbol_source.o",
         "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
         "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Symbol\\symbol_source.c"
@@ -265,6 +260,11 @@
         "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\App\\dds_control.c"
     },
     {
+        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/debug_manual.d\" -Wa,-a,-ad,-alms=build/debug_manual.lst App/debug_manual.c -o build/debug_manual.o",
+        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
+        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\App\\debug_manual.c"
+    },
+    {
         "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/led_indicator.d\" -Wa,-a,-ad,-alms=build/led_indicator.lst App/led_indicator.c -o build/led_indicator.o",
         "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
         "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\App\\led_indicator.c"
@@ -273,60 +273,5 @@
         "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/symbol_buffer.d\" -Wa,-a,-ad,-alms=build/symbol_buffer.lst Middleware/symbol_buffer.c -o build/symbol_buffer.o",
         "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
         "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\symbol_buffer.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/frame_builder.d\" -Wa,-a,-ad,-alms=build/frame_builder.lst Middleware/Buffer/frame_builder.c -o build/frame_builder.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Buffer\\frame_builder.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_cw.d\" -Wa,-a,-ad,-alms=build/mod_cw.lst Middleware/Modulator/mod_cw.c -o build/mod_cw.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_cw.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_fsk.d\" -Wa,-a,-ad,-alms=build/mod_fsk.lst Middleware/Modulator/mod_fsk.c -o build/mod_fsk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_fsk.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_ask.d\" -Wa,-a,-ad,-alms=build/mod_ask.lst Middleware/Modulator/mod_ask.c -o build/mod_ask.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_ask.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_gfsk.d\" -Wa,-a,-ad,-alms=build/mod_gfsk.lst Middleware/Modulator/mod_gfsk.c -o build/mod_gfsk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_gfsk.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_msk.d\" -Wa,-a,-ad,-alms=build/mod_msk.lst Middleware/Modulator/mod_msk.c -o build/mod_msk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_msk.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_qpsk.d\" -Wa,-a,-ad,-alms=build/mod_qpsk.lst Middleware/Modulator/mod_qpsk.c -o build/mod_qpsk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_qpsk.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_am.d\" -Wa,-a,-ad,-alms=build/mod_am.lst Middleware/Modulator/mod_am.c -o build/mod_am.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_am.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_fm.d\" -Wa,-a,-ad,-alms=build/mod_fm.lst Middleware/Modulator/mod_fm.c -o build/mod_fm.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_fm.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_bpsk.d\" -Wa,-a,-ad,-alms=build/mod_bpsk.lst Middleware/Modulator/mod_bpsk.c -o build/mod_bpsk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_bpsk.c"
-    },
-    {
-        "command": "arm-none-eabi-gcc -c -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -DUSE_PWR_EXTERNAL_SOURCE_SUPPLY -DUSE_HAL_DRIVER -DSTM32H723xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -IBsp -IDrivers/AD9959 -IDrivers/595 -IDrivers/APS6404 -IDrivers/Clock -IDrivers/Trigger -IMiddleware -IMiddleware/DDS -IMiddleware/Buffer -IMiddleware/Scheduler -IMiddleware/Packet -IMiddleware/Symbol -IMiddleware/Modulator -IMiddleware/PulseShaping -IApp -Og -Wall -fdata-sections -ffunction-sections -g -gdwarf-2 -MMD -MP -MF\"build/mod_4fsk.d\" -Wa,-a,-ad,-alms=build/mod_4fsk.lst Middleware/Modulator/mod_4fsk.c -o build/mod_4fsk.o",
-        "directory": "c:/Users/Shuchen Tao/Documents/DDS_9959_combd",
-        "file": "c:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd\\Middleware\\Modulator\\mod_4fsk.c"
     }
 ]

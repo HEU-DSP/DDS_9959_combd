@@ -92,7 +92,7 @@ static bool build_channel_command(uint8_t ch, const ModInput *input,
     case CH_MODE_CW:
         cmd->ftw = mod_cfg[ch].cw.ftw;
         cmd->asf = mod_cfg[ch].cw.asf;
-        cmd->pow = 0;
+        cmd->pow = mod_cfg[ch].cw.pow;
         break;
 
     case CH_MODE_FSK:

@@ -3,20 +3,27 @@
  * @file    hc595.c
  * @brief   74HC595 Driver Implementation
  *
- * USART10 is configured in half-duplex single-wire mode (TX only).
- * Each 16-bit write sends: chip1_data[7:0] then chip2_data[15:8]
- * as a single USART frame (LSB first or MSB first depending on
- * USART configuration). The data shifts into chip1, and chip1's
- * QH' overflows into chip2's DS.
+ * Transport: GPIO bit-bang — PE3 = DS, PE2 = STCP, PE4 = SHCP,
+ * PE5 = MR (active-low), PE6 = OE (active-low).  (An earlier USART10
+ * half-duplex transport was planned but never implemented.)
+ *
+ * Each 16-bit write shifts chip2_data[15:8] first, then chip1_data[7:0];
+ * the data shifts into chip1 and chip1's QH' overflows into chip2's DS.
  *
  * After writing, HC595_Latch() toggles STCP to push shift register
  * contents to parallel outputs.
+ *
+ * CONCURRENCY: HC595_Write() is called both from the main loop (power-up
+ * sequence, APPLY, reset — DDS control bits) and from the TIM5 10 Hz ISR
+ * (Led_Refresh → HC595_WriteLEDs).  It therefore runs under a PRIMASK
+ * critical section so an ISR cannot tear a half-shifted frame: bit 11 of
+ * chip2 is AD9959 master_reset, and a torn frame could pulse it and wipe
+ * the boot-once FR1/PLL configuration.
  ******************************************************************************
  */
 
 #include "hc595.h"
 #include "bsp_gpio.h"
-#include "bsp_uart.h"
 
 /* Shadow registers for read-modify-write */
 static uint16_t hc595_shadow = 0x0000;
@@ -66,6 +73,14 @@ void HC595_Write(uint16_t data)
      * Standard cascade: first byte → chip1, second byte → chip2.
      * Each byte: MSB first (standard SPI-like shift). */
 
+    /* The whole frame must be indivisible w.r.t. the TIM5 ISR
+     * (Led_Refresh → HC595_WriteLEDs).  PRIMASK save/restore — NOT an
+     * unconditional __enable_irq() — so a call made from inside an
+     * existing critical section (or from the ISR itself, where PRIMASK
+     * is already set) stays correct and nesting works. */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
     uint16_t mask = 0x8000U;
     BSP_GPIO_595_STCP_Clr();
     for (int i = 0; i < 16; i++) {
@@ -84,6 +99,10 @@ void HC595_Write(uint16_t data)
 
     HC595_Latch();
     hc595_shadow = data;
+
+    if (primask == 0U) {
+        __enable_irq();
+    }
 }
 
 void HC595_SetBit(uint8_t chip, uint8_t bit)

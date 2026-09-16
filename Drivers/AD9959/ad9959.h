@@ -82,6 +82,17 @@ void AD9959_IOUpdateGpioInit(void);
 /** Return PC6 to TIM8_CH1 AF after init IO_UPDATE. */
 void AD9959_IOUpdateTimerInit(void);
 
+/**
+ * @brief  Re-write FR1 (VCO gain + PLL x20) without latching it.
+ *
+ * FR1 is the only register the 10 kHz DMA frame never rewrites, so it is
+ * also the only one that cannot self-heal: if it is lost the chip falls
+ * back to SYSCLK = REF_CLK and every output frequency is 20x low until
+ * the next reset.  Called from the APPLY safe-switch — the caller must
+ * already own PC6 as GPIO and must pulse IO_UPDATE afterwards.
+ */
+void AD9959_ReassertPLL(void);
+
 /** Hold DDS reset high and continuously send a known SPI1 waveform. */
 void AD9959_DebugSpiWaveformTest(void);
 
