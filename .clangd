@@ -1,7 +1,12 @@
 # Linux 下 clangd 配置（测试分支）
-# 裸机 ARM 目标(--target=arm-none-eabi)下没有 libc，默认找不到 math.h 等标准库头文件。
-# 这里借用宿主 glibc 头文件做代码补全；若装了 libnewlib-arm-none-eabi 可改为指向它。
+#
+# 编译数据库里的目标为裸机 ARM(--target=arm-none-eabi)，clangd 不会去宿主系统找
+# libc 头文件，因此 math.h 等标准库头需要显式指向 arm-none-eabi-gcc 工具链的
+# newlib / GCC 内建头文件目录。
+#
+# 注: 路径中的 13.2.1 是工具链版本号，升级 gcc-arm-none-eabi 后需同步更新。
 CompileFlags:
   Add:
-    - -isystem/usr/include
-    - -isystem/usr/include/x86_64-linux-gnu
+    - -isystem/usr/lib/gcc/arm-none-eabi/13.2.1/include
+    - -isystem/usr/lib/gcc/arm-none-eabi/13.2.1/include-fixed
+    - -isystem/usr/lib/arm-none-eabi/include

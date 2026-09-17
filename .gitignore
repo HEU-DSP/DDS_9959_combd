@@ -2,3 +2,4 @@ build/
 launch.json
 CLAUDE.md
 DOCS/Template1/
+.cache/
