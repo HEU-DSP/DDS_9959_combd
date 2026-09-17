@@ -1,8 +1,9 @@
 [
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -48,9 +49,10 @@
   "file": "Core/Src/main.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -96,9 +98,10 @@
   "file": "Core/Src/stm32h7xx_it.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -144,9 +147,10 @@
   "file": "Core/Src/stm32h7xx_hal_msp.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -192,9 +196,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cordic.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -240,9 +245,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -288,9 +294,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -336,9 +343,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -384,9 +392,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -432,9 +441,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -480,9 +490,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hsem.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -528,9 +539,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -576,9 +588,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -624,9 +637,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -672,9 +686,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -720,9 +735,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -768,9 +784,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -816,9 +833,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -864,9 +882,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -912,9 +931,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -960,9 +980,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1008,9 +1029,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1056,9 +1078,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fmac.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1104,9 +1127,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_ospi.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1152,9 +1176,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_opamp.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1200,9 +1225,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_opamp_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1248,9 +1274,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1296,9 +1323,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1344,9 +1372,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1392,9 +1421,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1440,9 +1470,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_lptim.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1488,9 +1519,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1536,9 +1568,10 @@
   "file": "Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1584,9 +1617,10 @@
   "file": "Core/Src/system_stm32h7xx.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1632,9 +1666,10 @@
   "file": "Core/Src/sysmem.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1680,9 +1715,10 @@
   "file": "Core/Src/syscalls.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1728,9 +1764,10 @@
   "file": "Bsp/bsp_dwt.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1776,9 +1813,10 @@
   "file": "Bsp/bsp_spi.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1824,9 +1862,10 @@
   "file": "Bsp/bsp_tim.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1872,9 +1911,10 @@
   "file": "Bsp/bsp_dma.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1920,9 +1960,10 @@
   "file": "Bsp/bsp_gpio.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -1968,9 +2009,10 @@
   "file": "Bsp/bsp_uart.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2016,9 +2058,10 @@
   "file": "Drivers/AD9959/ad9959.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2064,9 +2107,10 @@
   "file": "Drivers/595/hc595.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2112,9 +2156,10 @@
   "file": "Drivers/Trigger/trigger.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2160,9 +2205,10 @@
   "file": "Middleware/DDS/dds_encoder.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2208,9 +2254,10 @@
   "file": "Middleware/Buffer/pingpong.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2256,9 +2303,10 @@
   "file": "App/tx_buffer.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2304,9 +2352,10 @@
   "file": "App/mod_config.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2352,9 +2401,10 @@
   "file": "App/channel_config.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2400,9 +2450,10 @@
   "file": "Middleware/symbol_buffer.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2448,9 +2499,10 @@
   "file": "Middleware/Buffer/frame_builder.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2496,9 +2548,10 @@
   "file": "Middleware/Modulator/mod_cw.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2544,9 +2597,10 @@
   "file": "Middleware/Modulator/mod_fsk.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2592,9 +2646,10 @@
   "file": "Middleware/Modulator/mod_ask.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-x",
    "assembler-with-cpp",
    "-c",
@@ -2641,9 +2696,10 @@
   "file": "startup_stm32h723xx.s"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2689,9 +2745,10 @@
   "file": "App/led_indicator.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2737,9 +2794,10 @@
   "file": "Middleware/Modulator/mod_gfsk.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2785,9 +2843,10 @@
   "file": "Middleware/Modulator/mod_msk.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2833,9 +2892,10 @@
   "file": "Middleware/Modulator/mod_qpsk.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2881,9 +2941,10 @@
   "file": "Middleware/Modulator/mod_am.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2929,9 +2990,10 @@
   "file": "Middleware/Modulator/mod_fm.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -2977,9 +3039,10 @@
   "file": "Middleware/Modulator/mod_bpsk.c"
  },
  {
-  "directory": "C:\\Users\\Shuchen Tao\\Documents\\DDS_9959_combd",
+  "directory": "/home/zz_tao/WorkSpace26/DDS_9959_combd",
   "arguments": [
-   "arm-none-eabi-gcc",
+   "clang",
+   "--target=arm-none-eabi",
    "-c",
    "-mcpu=cortex-m7",
    "-mthumb",
@@ -3024,4 +3087,4 @@
   ],
   "file": "Middleware/Modulator/mod_4fsk.c"
  }
-]
+]
