@@ -21,15 +21,18 @@ host_cli.py — AD9959 SDT 上位机协议帧计算器（纯计算，无串口�
     py tools/host_cli.py set_bpsk 0 50000000 512 0 8192
     py tools/host_cli.py set_qpsk 0 50000000 512
     py tools/host_cli.py set_4fsk 0 512 45000000 48000000 51000000 54000000
-    py tools/host_cli.py symbols 5C                   # payload 为 HEX 字节串
+    py tools/host_cli.py symbols 01011100             # payload 为 0/1 位串
+    py tools/host_cli.py symbolsx 5C                  # 同上, HEX 字节按 MSB-first 展开
+    py tools/host_cli.py repeat 1                     # 无限循环重发最近 payload
     py tools/host_cli.py get_status / get_diag / apply / stop
-    py tools/host_cli.py --seq 5 fskc 0 50000000 5000 128 apply symbols 5C
+    py tools/host_cli.py --seq 5 fskc 0 50000000 5000 128 apply symbols 01011100
 
   解码应答帧 (把串口助手 HEX 显示的内容粘进来):
     py tools/host_cli.py decode A5 5A 01 00 00 04 00 01 01 00 00 74 B4
 
-  常用流程:  fskc 0 50000000 5000 128 apply symbols 5C
-  注意: 固件 debug_manual_enable=1 时 apply/stop 会被回 NACK 0x08。
+  常用流程:  fskc 0 50000000 5000 128 apply symbols 01011100
+  循环重发:  symbols 01011100 repeat 1  （repeat 0 / stop 停止；apply 取消）
+  注意: 固件 debug_manual_enable=1 时 apply/stop/repeat 会被回 NACK 0x08。
 """
 
 import argparse
@@ -41,6 +44,7 @@ SOF1, SOF2, VER = 0xA5, 0x5A, 0x01
 CMD_PING, CMD_GET_STATUS, CMD_SET_CW, CMD_SET_FSK = 0x00, 0x01, 0x02, 0x03
 CMD_SET_ASK, CMD_SET_BPSK, CMD_SET_QPSK, CMD_SET_4FSK = 0x04, 0x05, 0x06, 0x07
 CMD_SET_SYMBOLS, CMD_APPLY, CMD_STOP_OUTPUT, CMD_GET_DIAG = 0x08, 0x09, 0x0A, 0x0B
+CMD_SET_REPEAT = 0x0C
 
 NACK_NAMES = {
     0x00: "OK", 0x01: "BAD_CRC", 0x02: "BAD_LEN", 0x03: "BAD_CMD",
@@ -111,8 +115,30 @@ def _payload_set_4fsk(a):
 
 
 def _payload_symbols(a):
-    data = bytes.fromhex(a[0])
-    return (len(data) * 8).to_bytes(2, "little") + data, f"{len(data) * 8} bits 0x{a[0].upper()}"
+    # 协议约定: 一字节一个 bit (仅 bit0 有效)。输入为 0/1 位串。
+    s = a[0]
+    if (len(s) == 0) or (not all(c in "01" for c in s)):
+        raise ValueError("symbols 需要 0/1 位串, 如: symbols 01011100")
+    nbits = len(s)
+    if nbits > 62:
+        print(f"[警告] {nbits} bit 超过单帧上限 62 bit (HOST_PAYLOAD_MAX=64)，固件会回 NACK BAD_LEN")
+    data = bytes((0x01 if c == "1" else 0x00) for c in s)
+    return (nbits).to_bytes(2, "little") + data, f"{nbits} bits [{s}]"
+
+
+def _payload_symbols_hex(a):
+    # 便捷版: HEX 字节串, 每字节按 MSB-first 展开为 8 个 bit。
+    raw = bytes.fromhex(a[0])
+    s = "".join("1" if (b & m) else "0" for b in raw
+                for m in (0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01))
+    return _payload_symbols([s])
+
+
+def _payload_repeat(a):
+    v = int(a[0], 0)
+    if v not in (0, 1):
+        raise ValueError("repeat 参数只能是 0(关) 或 1(开)")
+    return bytes([v]), f"{'开' if v else '关'}"
 
 
 def _payload_empty(a):
@@ -133,6 +159,8 @@ COMMANDS = {
     "set_qpsk":   (3, CMD_SET_QPSK,   _payload_set_qpsk),
     "set_4fsk":   (6, CMD_SET_4FSK,   _payload_set_4fsk),
     "symbols":    (1, CMD_SET_SYMBOLS, _payload_symbols),
+    "symbolsx":   (1, CMD_SET_SYMBOLS, _payload_symbols_hex),
+    "repeat":     (1, CMD_SET_REPEAT, _payload_repeat),
 }
 
 

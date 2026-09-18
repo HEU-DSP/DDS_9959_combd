@@ -49,6 +49,8 @@ typedef struct {
     uint32_t tim8_ccr1;
     uint32_t tim8_ccr2;
     uint32_t chain_recovery_count;   /* fault recoveries performed by main loop */
+    uint32_t symbol_fallback_count;  /* frames built on the idle symbol after a
+                                      * partial-tail ReadBits retirement */
 } AD9959_Diag;
 
 extern DebugState ds;

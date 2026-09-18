@@ -20,6 +20,7 @@
 #include "dds_encoder.h"
 #include "tx_buffer.h"
 #include "phase1_config.h"
+#include "debug_state.h"    /* ad9959_diag.symbol_fallback_count */
 #include <string.h>
 
 /* ---- Pre-encoded frame storage (replayed by TIM8 ISR) ---- */
@@ -63,6 +64,11 @@ static uint8_t enabled_input_bits(void)
         if (ch_bits > bits) bits = ch_bits;
     }
     return bits;
+}
+
+uint8_t Encoder_InputBits(void)
+{
+    return enabled_input_bits();
 }
 
 static void make_mod_input(uint8_t raw_symbol, uint8_t input_bits,
@@ -220,17 +226,21 @@ bool Encoder_BuildBank(void)
 
     uint8_t input_bits = enabled_input_bits();
     ModInput input;
-    uint8_t raw_symbol = 0;
+    uint8_t raw_symbol = ENCODER_IDLE_SYMBOL;
 
     if (input_bits > 0U) {
         if (SymbolBuf_HasData()) {
             if (!SymbolBuf_ReadBits(&raw_symbol, input_bits)) {
-                return false;
+                /* Partial tail retired by ReadBits — fall back to the idle
+                 * (mark) symbol for this frame instead of dropping the
+                 * whole bank.  A bank drop would leave pre_encoded_mask
+                 * without the CW channels and stall the ISR replay. */
+                raw_symbol = ENCODER_IDLE_SYMBOL;
+                ad9959_diag.symbol_fallback_count++;
             }
-        } else {
-            /* No symbol data yet; encoder runs with whatever input is available.
-             * CW channels do not consume symbols and are always built. */
         }
+        /* else: no symbol data yet — idle mark; CW channels do not
+         * consume symbols and are always built. */
     }
     make_mod_input(raw_symbol, input_bits, &input);
 
@@ -262,14 +272,20 @@ uint16_t Encoder_BuildBank_DMA(void)
 
     uint8_t input_bits = enabled_input_bits();
     ModInput input;
-    uint8_t raw_symbol = 0;
+    uint8_t raw_symbol = ENCODER_IDLE_SYMBOL;
 
     if (input_bits > 0U) {
         if (SymbolBuf_HasData()) {
             if (!SymbolBuf_ReadBits(&raw_symbol, input_bits)) {
-                return 0;
+                /* Partial tail retired by ReadBits — fall back to the idle
+                 * (mark) symbol.  NEVER return 0 here: tx_bank_bytes == 0
+                 * makes HAL_SPI_TxCpltCallback skip the DMA re-arm and the
+                 * chain freezes silently (no error callback ever fires). */
+                raw_symbol = ENCODER_IDLE_SYMBOL;
+                ad9959_diag.symbol_fallback_count++;
             }
         }
+        /* else: no symbol data yet — idle mark. */
     }
     make_mod_input(raw_symbol, input_bits, &input);
 

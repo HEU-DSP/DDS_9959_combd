@@ -8,6 +8,7 @@
 #include "debug_manual.h"
 #include "dds_calc.h"
 #include "symbol_buffer.h"
+#include "payload_sched.h"   /* PayloadSched_Reset on the rising edge */
 #include "main.h"           /* HAL_GetTick */
 #include "trigger.h"        /* Trigger_Stop / Trigger_Restart (chain bracket) */
 #include "ad9959.h"         /* AD9959_ReassertPLL + PC6 borrow/restore        */
@@ -116,9 +117,10 @@ void DebugManual_Task(void)
 
     uint32_t rising = (prev_enable == 0U) ? 1U : 0U;
     if (rising) {
-        /* Rising edge: drop whatever symbols the host staged, so they cannot
-         * suddenly replay when debug mode is switched off again. */
-        SymbolBuf_Clear();
+        /* Rising edge: drop queue + repeat shadow, so nothing the host
+         * staged can suddenly replay when debug mode is switched off
+         * again. */
+        PayloadSched_Reset();
         prev_enable = 1U;
     }
 

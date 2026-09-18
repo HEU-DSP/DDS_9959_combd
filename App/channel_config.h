@@ -23,6 +23,18 @@
 extern DDS_EncodedFrame pre_encoded[DDS_CHANNEL_COUNT];
 extern uint8_t pre_encoded_mask;  /* bitmask of channels with valid frames */
 
+/* Idle symbol substituted when no payload bit is available.  Bit 0 = 1 is
+ * the MARK state of every 1-bit mode (FSK ftw_mark, ASK asf_on, BPSK
+ * phase1, GFSK/MSK +deviation, AM/FM +sample); for 2-bit modes the 1-bit
+ * value 0b01 = QPSK phase 135° / 4FSK ftw[1] — still a fixed carrier. */
+#define ENCODER_IDLE_SYMBOL  1U
+
+/**
+ * @brief  Symbol width (bits per frame) of the current configuration —
+ *         0 for pure CW, 2 when any enabled channel is QPSK/4FSK, else 1.
+ */
+uint8_t Encoder_InputBits(void);
+
 /**
  * @brief  Build pre-encoded DDS frames from mod_cfg + sym_buf.
  * @return true if at least one channel encoded, false if no active config.

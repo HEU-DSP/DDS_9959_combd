@@ -16,6 +16,8 @@
 #include "symbol_buffer.h"
 #include "debug_manual.h"
 #include "phase1_config.h"
+#include "payload_sched.h"
+#include "channel_config.h"     /* Encoder_InputBits — symbol-width check */
 #include <string.h>
 
 /* ---- External HAL handles ---- */
@@ -67,14 +69,19 @@ static bool debug_snapshot_after_control = false;
 
 static void debug_snapshot(void)
 {
+    const SymbolBuffer *rs = SymbolBuf_GetReadSlot();
+
     memcpy((void *)host_protocol_debug.active, mod_cfg, sizeof(mod_cfg));
     memcpy((void *)host_protocol_debug.pending, pending_cfg, sizeof(pending_cfg));
     host_protocol_debug.parser_state = (uint8_t)sync_state;
     host_protocol_debug.rx_ring_count = BSP_UartRx_Count();
     host_protocol_debug.symbol_count = SymbolBuf_Count();
-    host_protocol_debug.symbol_ready = sym_buf.ready ? 1U : 0U;
-    host_protocol_debug.symbol_free = sym_buf.free ? 1U : 0U;
-    host_protocol_debug.symbol_bits_per_sym = sym_buf.bits_per_sym;
+    host_protocol_debug.symbol_ready = SymbolBuf_HasData() ? 1U : 0U;
+    host_protocol_debug.symbol_free = SymbolBuf_IsFree() ? 1U : 0U;
+    host_protocol_debug.symbol_staged = SymbolBuf_IsStaged() ? 1U : 0U;
+    host_protocol_debug.symbol_repeat = PayloadSched_RepeatEnabled() ? 1U : 0U;
+    host_protocol_debug.symbol_read_index = SymbolBuf_ReadIndex();
+    host_protocol_debug.symbol_bits_per_sym = rs->bits_per_sym;
     host_protocol_debug.pending_cfg_has_data = pending_cfg_has_data ? 1U : 0U;
 }
 
@@ -328,12 +335,47 @@ static void handle_set_symbols(uint8_t seq, const uint8_t *pay, uint16_t len)
         reply_nack(seq, HOST_CMD_SET_SYMBOLS, HOST_NACK_BAD_LEN);
         return;
     }
-    if (!SymbolBuf_IsFree()) {
+
+    /* An odd tail can never complete a symbol on a 2-bit (QPSK/4FSK)
+     * configuration — reject it up front.  (The encoder's idle-symbol
+     * fallback remains as the safety net for a later APPLY changing
+     * the width under a payload already in the queue.) */
+    uint8_t width = Encoder_InputBits();
+    if ((width > 1U) && ((bit_count % width) != 0U)) {
+        reply_nack(seq, HOST_CMD_SET_SYMBOLS, HOST_NACK_BAD_PARAM);
+        return;
+    }
+
+    /* Stage into the double-buffer queue.  A BUSY result is exact — no
+     * check-then-act race.  Only an accepted payload becomes the repeat
+     * shadow. */
+    if (!PayloadSched_Stage(&pay[2], bit_count)) {
         reply_nack(seq, HOST_CMD_SET_SYMBOLS, HOST_NACK_BUSY);
         return;
     }
-    SymbolBuf_WriteBits(&pay[2], bit_count);
     reply_ack(seq, HOST_CMD_SET_SYMBOLS);
+}
+
+static void handle_set_repeat(uint8_t seq, const uint8_t *pay, uint16_t len)
+{
+    if (len < 1U) { reply_nack(seq, HOST_CMD_SET_REPEAT, HOST_NACK_BAD_LEN); return; }
+    if (pay[0] > 1U) { reply_nack(seq, HOST_CMD_SET_REPEAT, HOST_NACK_BAD_PARAM); return; }
+
+#if !AD9959_DOWNGRADE_MODE
+    /* Manual debug mode owns the output — an auto-replaying payload would
+     * fight DebugManual_Task for mod_cfg[]. */
+    if (debug_manual_enable) {
+        reply_nack(seq, HOST_CMD_SET_REPEAT, HOST_NACK_LOCAL_MODE);
+        return;
+    }
+#endif
+
+    if ((pay[0] != 0U) && !PayloadSched_HasShadow()) {
+        reply_nack(seq, HOST_CMD_SET_REPEAT, HOST_NACK_NOT_READY);
+        return;
+    }
+    PayloadSched_SetRepeat(pay[0] != 0U);
+    reply_ack_u8(seq, HOST_CMD_SET_REPEAT, PayloadSched_RepeatEnabled() ? 1U : 0U);
 }
 
 static void handle_apply(uint8_t seq)
@@ -356,6 +398,13 @@ static void handle_apply(uint8_t seq)
         return;
     }
     DDSControl_RequestApply();
+    /* Wipe the payload queue + repeat AT ACCEPTANCE TIME, not when the
+     * deferred apply executes.  Otherwise a SET_SYMBOLS burst right after
+     * this ACK would be staged successfully and then silently destroyed
+     * by the delayed dds_apply — the host sees an ACK for data that never
+     * plays.  With the wipe here, anything staged after this ACK survives
+     * the deferred apply. */
+    PayloadSched_Reset();
     debug_snapshot_after_control = true;
     /* Actual apply runs in DDSControl_Task() in the main loop.
      * Send ACK now — the caller can poll GET_STATUS to confirm. */
@@ -379,6 +428,9 @@ static void handle_stop_output(uint8_t seq)
         return;
     }
     DDSControl_RequestStop();
+    /* Same acceptance-time wipe as APPLY: anything staged after this ACK
+     * would otherwise race the deferred stop execution. */
+    PayloadSched_Reset();
     debug_snapshot_after_control = true;
     reply_ack(seq, HOST_CMD_STOP_OUTPUT);
 }
@@ -419,6 +471,7 @@ static void frame_dispatch(void)
     case HOST_CMD_APPLY:        handle_apply(frame_seq);         break;
     case HOST_CMD_STOP_OUTPUT:  handle_stop_output(frame_seq);   break;
     case HOST_CMD_GET_DIAG:     handle_get_diag(frame_seq);      break;
+    case HOST_CMD_SET_REPEAT:   handle_set_repeat(frame_seq, payload, frame_len); break;
     default:
         reply_nack(frame_seq, frame_cmd, HOST_NACK_BAD_CMD);
         break;
@@ -458,7 +511,10 @@ static void parse_byte(uint8_t byte)
             frame_cmd = fbuf[4];
             frame_len = (uint16_t)fbuf[5] | ((uint16_t)fbuf[6] << 8);
             if (frame_len > HOST_PAYLOAD_MAX) {
+                /* Reject instead of silently dropping — the host otherwise
+                 * waits forever for a reply that never comes. */
                 sync_state = HOST_SYNC_WAIT_SOF1;
+                reply_nack(frame_seq, frame_cmd, HOST_NACK_BAD_LEN);
                 break;
             }
             if (frame_len == 0U) {

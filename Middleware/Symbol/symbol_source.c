@@ -43,16 +43,22 @@ void SymbolSource_Generate(uint8_t input_bits)
         break;
 
     case 2U:
-        /* QPSK / 4FSK: cycle through Gray-coded symbols */
+        /* QPSK / 4FSK: cycle through Gray-coded symbols.  The queue stores
+         * ONE BIT PER BYTE, MSB-first — pack the 2-bit symbol accordingly.
+         * (The previous version indexed sym[1] of a 1-byte array — an
+         * out-of-bounds read of an uninitialized stack byte.) */
         {
-            uint8_t sym[1];
+            uint8_t sym[2];
+            uint8_t v;
             qpsk_phase = (qpsk_phase + 1U) & 0x03U;
             switch (qpsk_phase) {
-            case 0U: sym[0] = 0x00U; break;  /* 00 */
-            case 1U: sym[0] = 0x01U; break;  /* 01 */
-            case 2U: sym[0] = 0x03U; break;  /* 11 */
-            case 3U: sym[0] = 0x02U; break;  /* 10 */
+            case 0U: v = 0x00U; break;  /* 00 */
+            case 1U: v = 0x01U; break;  /* 01 */
+            case 2U: v = 0x03U; break;  /* 11 */
+            default: v = 0x02U; break;  /* 10 */
             }
+            sym[0] = (uint8_t)((v >> 1) & 1U);
+            sym[1] = (uint8_t)(v & 1U);
             SymbolBuf_WriteBits(sym, 2U);
         }
         break;

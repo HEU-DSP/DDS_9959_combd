@@ -13,7 +13,6 @@
 #include "bsp_tim.h"
 #include "bsp_spi.h"
 #include "channel_config.h"
-#include "symbol_buffer.h"
 #include "tx_buffer.h"
 #include "phase1_config.h"
 #include "debug_state.h"
@@ -197,7 +196,6 @@ static uint8_t dds_apply(void)
     (void)dds_apply_config();
 
     /* 10. Rebuild pre_encoded[] for the TIM8 ISR */
-    SymbolBuf_Clear();
     Encoder_BuildBank();
 
     /* 11. Restore TIM8 state and re-enable */
@@ -223,7 +221,6 @@ static uint8_t dds_apply(void)
     (void)dds_apply_config();
 
     /* 8. Rebuild both ping-pong banks (zero-copy into D2 SRAM) */
-    SymbolBuf_Clear();
     tx_bank_bytes = Encoder_BuildBank_DMA();
     TxBuf_Swap();
     tx_bank_bytes = Encoder_BuildBank_DMA();
@@ -262,7 +259,6 @@ static uint8_t dds_stop_output(void)
         mod_cfg[ch].mode    = CH_MODE_OFF;
     }
 
-    SymbolBuf_Clear();
     Encoder_BuildBank();
 
     TIM8->DIER = tim8_dier;
@@ -284,7 +280,6 @@ static uint8_t dds_stop_output(void)
     }
 
     /* Empty banks — no DMA frame until the next APPLY. */
-    SymbolBuf_Clear();
     tx_bank_bytes = Encoder_BuildBank_DMA();   /* 0 with no channels enabled */
 
     ad9959_diag.tx_running = 0U;   /* report STOP to the host */

@@ -31,7 +31,6 @@
 #include "tx_buffer.h"
 #include "phase1_config.h"
 #include "mod_config.h"
-#include "symbol_buffer.h"
 #include "channel_config.h"
 #include "dds_calc.h"
 #include "led_indicator.h"
@@ -39,9 +38,10 @@
 #include "host_protocol.h"
 #include "dds_control.h"
 #include "debug_manual.h"
-#include "symbol_source.h"
 #include "trigger.h"
 #include "bsp_dma.h"
+#include "aps6404.h"
+#include "payload_sched.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -118,7 +118,7 @@ static void MX_TIM5_Init(void);
 static void MX_LPTIM3_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void MPU_Config_PSRAM(void);   /* defined in USER CODE 4 */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -140,21 +140,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* TIM8 CH1 hardware PWM generates IO_UPDATE automatically at
          * every period update.  SPI data sent here is applied by the
          * NEXT period's IO_UPDATE (one-sample pipeline, transparent
-         * for CW and all modulations). */
-        if (!SymbolBuf_HasData() && SymbolBuf_IsFree()) {
-            uint8_t ib = 0U;
-            for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
-                if (!mod_cfg[ch].enabled) continue;
-                uint8_t b;
-                switch (mod_cfg[ch].mode) {
-                case CH_MODE_CW:   continue;
-                case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
-                default:           b = 1U; break;
-                }
-                if (b > ib) ib = b;
-            }
-            SymbolSource_Generate(ib);
-        }
+         * for CW and all modulations).  Symbol handoff is owned by
+         * PayloadSched_Task() (main loop); with no payload the encoder
+         * emits the idle MARK symbol. */
         (void)Encoder_BuildBank();
 
         for (uint8_t ch = 0; ch < DDS_CHANNEL_COUNT; ch++) {
@@ -270,6 +258,9 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
   DWT_Init(540U);
+  /* APS6404 PSRAM aperture: MPU region 0 marks 0x90000000 NO_ACCESS —
+   * grant it before anything (CPU or DMA) touches the mapped region. */
+  MPU_Config_PSRAM();
 
   /* USER CODE END SysInit */
 
@@ -296,6 +287,10 @@ int main(void)
   tx_timing.baud_rate       = P1_BAUD_RATE;
   tx_timing.samples_per_sym = P1_SAMPLES_PER_SYM;
   TxTiming_Update();
+
+  /* ---- APS6404 PSRAM (8 MB @ 0x90000000) — non-fatal bring-up ---- */
+  APS6404_Init();
+  APS6404_SelfTest();
 
   /* ---- Phase 1: Initialize 595 + AD9959 ---- */
   HC595_Init();
@@ -331,7 +326,7 @@ int main(void)
   ModCfg_SetCW(1, DDSCalc_FTW(99700000U), 0x000);
   ModCfg_SetCW(2, DDSCalc_FTW(99700000U), 0x000);
   ModCfg_SetCW(3, DDSCalc_FTW(99700000U), 0x000);
-  SymbolBuf_Clear();
+  PayloadSched_Init();
 
   /* Template1-style: CSR before every data register, all 4 channels,
    * one IO_UPDATE at end.  HAL_SPI_Transmit is blocking — no extra
@@ -433,9 +428,15 @@ int main(void)
     HostProtocol_Task();
     DDSControl_Task();
 
+    /* Payload handoff: promote staged symbols / repeat-refill / optional
+     * auto pattern.  Runs before the LED update so MOD READY reflects the
+     * post-promotion state; runs before the bank build in DMA mode so the
+     * handoff is gapless. */
+    PayloadSched_Task();
+
     /* TX-status LEDs (MOD READY + CH0..CH3) — once per pass, both modes.
-     * Runs before the mode-specific blocks: SymbolBuf_HasData() is only
-     * stable at end-of-pass, outside the symbol generate/consume windows. */
+     * Runs after PayloadSched_Task() so MOD READY reflects the promoted /
+     * refilled queue state, and before the bank build consumes symbols. */
     Led_UpdateTxState();
 
 #if AD9959_DOWNGRADE_MODE
@@ -488,29 +489,13 @@ int main(void)
           DebugManual_Task();
       }
 
-      /* DMA mode: refill the idle bank when the DMA TC ISR signals it. */
+      /* DMA mode: refill the idle bank when the DMA TC ISR signals it.
+       * Symbol handoff (promote / repeat refill / optional auto pattern)
+       * is owned by PayloadSched_Task() earlier in the pass. */
       if (ds.dma_bank_ready) {
           ds.dma_bank_ready = 0U;
-
-          if (!debug_manual_enable && !SymbolBuf_HasData() && SymbolBuf_IsFree()) {
-              /* Only CW/4FSK/BPSK/QPSK channels consume symbols.  The symbol
-               * width is the maximum over those; scanning mod_cfg[] also gives
-               * the encoder a chance to observe in-flight debug writes, which
-               * is harmless — the encoder re-reads mod_cfg[] itself. */
-              uint8_t ib = 0U;
-              for (uint8_t ch = 0U; ch < DDS_CHANNEL_COUNT; ch++) {
-                  if (!mod_cfg[ch].enabled) continue;
-                  uint8_t b;
-                  switch (mod_cfg[ch].mode) {
-                  case CH_MODE_CW:   continue;
-                  case CH_MODE_QPSK: case CH_MODE_4FSK: b = 2U; break;
-                  default:           b = 1U; break;
-                  }
-                  if (b > ib) ib = b;
-              }
-              SymbolSource_Generate(ib);
-          }
-          /* Zero-copy encode straight into TxBuf_GetIdle()->spi1[] (D2 SRAM). */
+          /* Zero-copy encode straight into TxBuf_GetIdle()->spi1[] (D2 SRAM).
+           * With no payload the encoder emits the idle MARK symbol. */
           (void)Encoder_BuildBank_DMA();
       }
 
@@ -793,15 +778,15 @@ static void MX_OCTOSPI1_Init(void)
   hospi1.Instance = OCTOSPI1;
   hospi1.Init.FifoThreshold = 1;
   hospi1.Init.DualQuad = HAL_OSPI_DUALQUAD_DISABLE;
-  hospi1.Init.MemoryType = HAL_OSPI_MEMTYPE_MICRON;
-  hospi1.Init.DeviceSize = 32;
-  hospi1.Init.ChipSelectHighTime = 1;
+  hospi1.Init.MemoryType = HAL_OSPI_MEMTYPE_APMEMORY;
+  hospi1.Init.DeviceSize = 23;
+  hospi1.Init.ChipSelectHighTime = 2;
   hospi1.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
   hospi1.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
   hospi1.Init.WrapSize = HAL_OSPI_WRAP_NOT_SUPPORTED;
-  hospi1.Init.ClockPrescaler = 1;
+  hospi1.Init.ClockPrescaler = 4;
   hospi1.Init.SampleShifting = HAL_OSPI_SAMPLE_SHIFTING_NONE;
-  hospi1.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_DISABLE;
+  hospi1.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_ENABLE;
   hospi1.Init.ChipSelectBoundary = 0;
   hospi1.Init.DelayBlockBypass = HAL_OSPI_DELAY_BLOCK_BYPASSED;
   hospi1.Init.MaxTran = 0;
@@ -1433,6 +1418,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * @brief  Grant CPU/DMA access to the APS6404 PSRAM aperture.
+ *
+ * MPU region 0 (programmed by MPU_Config) marks subregion 4
+ * (0x80000000-0x9FFFFFFF, incl. 0x90000000) as NO_ACCESS + XN.  Region 7
+ * (higher number wins) overrides it with Normal, non-cacheable attributes:
+ * CPU↔DMA sharing needs zero cache maintenance, and Normal (not Device /
+ * Strongly-ordered) keeps byte-granular, unaligned memcpy legal.
+ */
+static void MPU_Config_PSRAM(void)
+{
+  MPU_Region_InitTypeDef mpu = {0};
+
+  HAL_MPU_Disable();                          /* region 0 stays programmed */
+
+  mpu.Enable           = MPU_REGION_ENABLE;
+  mpu.Number           = MPU_REGION_NUMBER7;
+  mpu.BaseAddress      = APS6404_BASE;
+  mpu.Size             = MPU_REGION_SIZE_256MB;   /* whole OCTOSPI1 aperture */
+  mpu.SubRegionDisable = 0x00U;
+  mpu.TypeExtField     = MPU_TEX_LEVEL1;          /* TEX=001 → Normal */
+  mpu.AccessPermission = MPU_REGION_FULL_ACCESS;
+  mpu.DisableExec      = MPU_INSTRUCTION_ACCESS_DISABLE;
+  mpu.IsShareable      = MPU_ACCESS_SHAREABLE;    /* shared with DMA masters */
+  mpu.IsCacheable      = MPU_ACCESS_NOT_CACHEABLE;
+  mpu.IsBufferable     = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&mpu);
+  HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);     /* same flags as MPU_Config */
+}
 
 /* USER CODE END 4 */
 

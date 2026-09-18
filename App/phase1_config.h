@@ -54,6 +54,13 @@
 #define HC595_OUTPUT_SELFTEST  0
 #define HC595_OUTPUT_SELFTEST_WORD  0xFEFEU
 
+/* Bring-up auto pattern: with no payload queued, SymbolSource_Generate
+ * emits an alternating 0/1 pattern (2-bit modes: Gray cycle).  Default
+ * OFF — the idle state is the MARK symbol (fixed carrier).  When enabled
+ * the generator runs from PayloadSched_Task() (main loop) ONLY, never
+ * from an ISR.  Switching this flag requires make clean. */
+#define AD9959_IDLE_AUTO_PATTERN  0
+
 /* ================================================================
  * FTW constants — precomputed via DDSCalc_FTW() at SYSCLK = 490.909091 MHz.
  * Kept for the AD9959_CYCLIC_FTW_DMA_TEST bring-up switch; the live

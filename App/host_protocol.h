@@ -48,6 +48,7 @@
 #define HOST_CMD_APPLY         0x09U
 #define HOST_CMD_STOP_OUTPUT   0x0AU
 #define HOST_CMD_GET_DIAG      0x0BU
+#define HOST_CMD_SET_REPEAT    0x0CU
 
 #define HOST_FLAG_NACK         0x80U
 
@@ -103,6 +104,9 @@ typedef struct {
     uint16_t symbol_count;
     uint8_t  symbol_ready;
     uint8_t  symbol_free;
+    uint8_t  symbol_staged;       /* payload staged in the write slot   */
+    uint8_t  symbol_repeat;       /* SET_REPEAT state                   */
+    uint8_t  symbol_read_index;   /* which slot is playing (0/1)        */
     uint8_t  symbol_bits_per_sym;
     uint8_t  pending_cfg_has_data;
 

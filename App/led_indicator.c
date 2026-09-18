@@ -93,7 +93,8 @@ void Led_UpdateTxState(void)
         }
     }
 
-    leds.mod_ready = ((ad9959_diag.tx_running != 0U) && !SymbolBuf_HasData())
+    leds.mod_ready = ((ad9959_diag.tx_running != 0U)
+                      && !SymbolBuf_HasData() && !SymbolBuf_IsStaged())
                      ? LED_ON : LED_OFF;
 }
 
